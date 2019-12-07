@@ -1,23 +1,26 @@
-import java.net.*;
-import javax.swing.*;
+
 import java.awt.geom.*;
+import java.io.Serializable;
 import java.awt.Color;
 import java.awt.*;
 import java.util.*;
 
-public class Cell // extends Area?
+public class Cell implements Serializable // extends Area?
 {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -1597484864744817236L;
 	private Color myBG = Color.GREEN;
 	private Geology myGeology;
-	private ArrayList<Cell> myNeighbors = new ArrayList<Cell>();
-	private ArrayList<Cell> myFarNeighbors = new ArrayList<Cell>();
+	private transient ArrayList<Cell> myNeighbors = new ArrayList<Cell>();
+	private transient ArrayList<Cell> myFarNeighbors = new ArrayList<Cell>();
 	private Occupiers myDefense;
 	private int myRow;
 	private int myCol;
-	private Area myArea = new Area();
-	private char myChar;
+	private transient Area myArea = new Area();
 	private boolean myAttackAbility = true;
-	private City myCity = null; // not all cells are in a city so may be null
+	private transient City myCity = null; // not all cells are in a city so may be null
 	
 	public Cell()
 	{
@@ -145,7 +148,18 @@ public class Cell // extends Area?
 		for (Cell cell : myNeighbors)
 		{
 			if ((cell.getBackground() == this.getBackground())
-				 && (cell.getCity() != this.getCity()))
+				 && (!this.getCity().equals(cell.getCity())))
+				an.add(cell);
+		}
+		return an;
+	}	
+	// returns all the neighbors of this cell with the different color
+	public ArrayList<Cell> getEnemyNeighbors()
+	{
+		ArrayList<Cell> an = new ArrayList<Cell>();
+		for (Cell cell : myNeighbors)
+		{
+			if (cell.getBackground() != this.getBackground())
 				an.add(cell);
 		}
 		return an;
@@ -158,7 +172,7 @@ public class Cell // extends Area?
 		{
 			for (Cell cell : myNeighbors)
 			{
-				if (cell.getCity() == this.getCity())
+				if (this.getCity().equals(cell.getCity()))
 					an.add(cell);
 			}
 		}

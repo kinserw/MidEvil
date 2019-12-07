@@ -1,21 +1,33 @@
 import java.util.*;
-import java.awt.*;
+//import java.awt.*;
 import java.awt.geom.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 
-public class City extends ArrayList<Cell>
+public class City extends ArrayList<Cell> implements Serializable
 {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 3534671180721689277L;
 	//private ArrayList<Cell> myLand = new ArrayList<Cell>();
-	private ArrayList<Cell> myNeighbors = new ArrayList<Cell>();
+	private transient ArrayList<Cell> myNeighbors = new ArrayList<Cell>();
 	private ArrayList<Occupiers> myArmy = new ArrayList<Occupiers>(); // army
 	private int myGoldReserve = 0;
-	private Player myPlayer = null;
-	private Area myArea = new Area();
+	private int myID = -1;
+	private transient Player myPlayer = null;
+	private transient Area myArea = new Area();
 	
 	public City()
 	{
+		myID = (int)(Math.random()*100000);
 	}
 	public City(ArrayList<Cell> city)
 	{
+		myID = (int)(Math.random()*100000);
+
 		//myLand = city;
 		for (Cell cell : city)
 			this.add(cell);
@@ -30,6 +42,10 @@ public class City extends ArrayList<Cell>
 		myGoldReserve += gold;
 	}	
 	
+	public int getID()
+	{
+		return myID;
+	}
 	public Player getPlayer()
 	{
 		return myPlayer;
@@ -94,12 +110,40 @@ public class City extends ArrayList<Cell>
 		
 		return canAffordIt;
 	}
+	
+	public Cell getCurrentVillage()
+	{
+		Cell village = null;
+		for (Cell cell : this)
+			if (cell.getOccupiers() == Occupiers.VILLAGE)
+				village = cell;
 
+		return village;
+	}
 	
 	public ArrayList<Cell> getNeighbors()
 	{
 		findMyNeighbors();
 		return myNeighbors;
+	}
+	
+	public ArrayList<Cell> getEnemyNeighbors()
+	{
+		ArrayList<Cell> n = new ArrayList<Cell>();
+		for (Cell cell : /* myLand */this)
+		{
+			// some cells have the same neighbors so don't add the same one twice
+			// also, don't add allied cells (cells owned by the same player)
+
+			ArrayList<Cell> cn = cell.getEnemyNeighbors();
+			for (Cell neighbor : cn) 
+			{
+				// need to check that I haven't added this neighbor already
+				if (!n.contains(neighbor))
+					n.add(neighbor);
+			}
+		}
+		return n;
 	}
 	
 	// find all the cells adjacent to this city's cells (may or may not
@@ -183,11 +227,14 @@ public class City extends ArrayList<Cell>
 		else if (obj.getClass() != this.getClass())
 			return false;
 		City city = (City)obj;
-		return (this.myGoldReserve == city.myGoldReserve) && (this.myPlayer == city.myPlayer) && (this.myArmy == city.myArmy);
+		//return (this.myGoldReserve == city.myGoldReserve) && (this.myPlayer == city.myPlayer) && (this.myArmy == city.myArmy);
+		return this.myID == city.myID;
 	}
 	
 	public void calculateEdges(int height, int width)
 	{
+		if (myArea == null)
+			myArea = new Area();
 		myArea.reset();
 		for (Cell c : this)
 			myArea.add(c.getArea());
@@ -195,7 +242,40 @@ public class City extends ArrayList<Cell>
 	
 	public Area getArea()
 	{
+		if (myArea == null)
+			myArea = new Area();
 		return myArea;
+	}
+	
+	public void loadCity(ObjectInputStream in, Cell[][] map) throws IOException
+	{
+		int count = in.readInt();
+		for (int i = 0; i < count; i++)
+		{
+			Cell cell = map[in.readInt()][in.readInt()];
+			this.add(cell);
+			cell.setCity(this);
+		}
+		
+	}
+	
+	@Override
+	public String toString()
+	{
+		String str = super.toString();
+		return myID + str;
+	}
+	
+	public void saveCity(ObjectOutputStream out) throws IOException
+	{
+		int count = size();
+		out.writeInt(count);
+		for (int i = 0; i < count; i++)
+		{
+			Cell cell = get(i);
+			out.writeInt(cell.getRow());
+			out.writeInt(cell.getCol());
+		}		
 	}
 
 	

@@ -1,13 +1,11 @@
-import java.net.*;
-import javax.swing.*;
 import java.awt.*;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
+import java.io.Serializable;
+
 import javax.imageio.ImageIO;
 
-public enum Geology 
+public enum Geology implements Serializable
 { 	
   	UNKNOWN, 
 	WATER, 

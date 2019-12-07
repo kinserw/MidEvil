@@ -1,13 +1,12 @@
-import java.net.*;
-import javax.swing.*;
+
 import java.awt.*;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
+import java.io.Serializable;
+
 import javax.imageio.ImageIO;
 
-public enum Occupiers 
+public enum Occupiers implements Serializable
 { 
     // This will call enum constructor with two 
     // int arguments for amount of gold consumed per turn & cost to buy

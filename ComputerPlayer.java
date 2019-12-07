@@ -1,18 +1,26 @@
 import java.util.*;
-import java.awt.Color;
 
 public class ComputerPlayer extends Player
 {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 6797042090274204705L;
 	Random myNumGen = new Random();
+	private int myDifficulty = 0;
 	
-	public ComputerPlayer()
+	public ComputerPlayer(int difficulty)
 	{
+		myDifficulty = difficulty;
 	}
 	
 	
 	public boolean takeTurn()
 	{
 		int count = 0;
+		resetAttackingPieces();
+		
+		// get rid of any of my cities that are too small to exist
 		boolean keepGoing = myCities.size() > 0;
 		while (keepGoing)
 		{
@@ -21,12 +29,9 @@ public class ComputerPlayer extends Player
 			{
 				if (city.size() != 0)
 				{
-					city.get(0).setCity(null);
-					city.get(0).setOccupiers(Occupiers.NONE);
-					city.get(0).setBackground(Color.GREEN);
+					cityLostCell(city, city.get(0));
 				}
-				city.setPlayer(null);
-				myCities.remove(count);
+
 			}
 			else 
 				count +=1;
@@ -37,21 +42,35 @@ public class ComputerPlayer extends Player
 		
 		combineAdjacentCities(); 
 		
-		int randomNum = myNumGen.nextInt(100);
+		// computer player difficulty rating is considered..
+		//     easy 	if they only take defensive moves
+		//     medium 	if they random switch between defense and offense
+		//     hard		if they only take offensive moves
+		switch (myDifficulty)
+		{
+			case 3 :
+				takeDefensiveTurn();
+			break;
+			case 8 :
+				takeOffensiveTurn();
+			break;	
+			default :
+				int randomNum = myNumGen.nextInt(100);
+				if (randomNum > 50) 
+					takeOffensiveTurn();
+				else
+					takeDefensiveTurn();
+				break;
+		}
 
-		if (randomNum > 50) 
-			takeOffensiveTurn();
-		else
-		
-			takeDefensiveTurn();
-			
+		combineAdjacentCities(); 
+
 		return true;
 	}
 	
 	private void takeOffensiveTurn()
 	{
 		// TODO loop through each city (offensive approach)
-		Random numGen = new Random();
 		for (City city : myCities)
 		{
 			city.processGold();
@@ -60,125 +79,140 @@ public class ComputerPlayer extends Player
 			ArrayList<Occupiers> availableArmy = city.makeArmyAvailable();
 			
 			// get list of neighbors (any cell nearby not in the same city)
-			ArrayList<Cell> neighbors = city.getNeighbors();
+			ArrayList<Cell> enemies = city.getEnemyNeighbors();
 			
-			int count = 0;
-			boolean keepGoing = neighbors.size() > 0;
-			while (keepGoing)
-			{
-				// remove neighbors that are allies (belong to the same player but
-				// not in the same city being evaluated)
-				Cell c = neighbors.get(count);
-				if ((c.getCity() != null) && (c.getCity().getPlayer() == this))
-					neighbors.remove(count);
-				else
-					count++;
-				keepGoing = (neighbors.size() > count);
-			}
+			// find general direction of nearest allied city, if any
+			City nearestAlly = findNearestAlly(city);
+			Cell myVillage = city.getCurrentVillage();
+			Cell allyVillage = nearestAlly.getCurrentVillage();
+			double direction = 0.0;
+			if (!(myVillage == null || allyVillage == null))
+				direction = Math.atan2(allyVillage.getCol() - myVillage.getCol(), allyVillage.getRow() - myVillage.getRow());
+		
 
-			
-			// first, look at my existing army and take as many neighbors
-			// as I can with what I have
-			while ((availableArmy.size() > 0) && (neighbors.size()>0)) 
+			ArrayList<Move> possibleMoves = new ArrayList<Move>();
+
+			// loop through enemy neighbors
+			// if neighbor is a village of city with 2 cells, highest weight
+			// if neighbor is a village, high weight
+			// if neighbor is part of a city and in direction of nearest ally, medium-high weight
+			// if neighbor in direction of nearest ally, medium weight
+			// All remaining neighbors are priorities weakest to strongest
+			while (enemies.size() > 0)
 			{
-				// find neighbors that I can attack from this city now
-				// attack them
-				int i = numGen.nextInt(neighbors.size());
-				Cell neighbor = neighbors.get(i);
-				for (Occupiers armyGuy : availableArmy)
+				Cell target = enemies.remove(0);
+				
+				double cellDir = Math.atan2(target.getCol() - myVillage.getCol(), 
+											target.getRow() - myVillage.getRow());
+				boolean inDirection = (Math.abs(cellDir-direction) < (Math.PI / 100) ? true : false);
+				
+				// if target cell belongs to another player, weigh move accordingly
+				// Note: getEnemyNeighbors already excluded cities for the 
+				// attacking player
+				if (target.getCity() != null)
 				{
-					if (armyGuy.getValue() > neighbor.getDefense())
+					// if taking target will eliminate a city...
+					if (target.getCity().size() == 2)
 					{
-						// if neighbor is in another city, disconnect it 
-						if (neighbor.getCity() != null)
-						{
-							City ncity = neighbor.getCity();
-							ncity.getPlayer().cityLostCell(ncity, neighbor);
-							ncity.getPlayer().determineCityConnectivity(ncity);
-						}
-						availableArmy.remove(armyGuy);
-						neighbor.setOccupiers(armyGuy);
-						city.add(neighbor);
-						neighbor.setCity(city);
-						neighbor.setBackground(getColor());
-						neighbors.remove(neighbor);
-						break;
+						possibleMoves.add(new Move(null, target, 10, "Offensive: take 2 cell city")); // highest weight
+					}
+					// if I can take all the gold from an enemy city,...
+					else if (target.getOccupiers() == Occupiers.VILLAGE)
+					{
+						possibleMoves.add(new Move(null, target, 8, "Offensive: take village"));
+					}
+					// enemy cell in a direction of my nearest ally
+					else if (inDirection)
+					{
+						possibleMoves.add(new Move(null, target, 6, "Offensive: city cell in direction"));
+					}
+					// taking enemy cell is better than taking an empty cell
+					else
+					{
+						possibleMoves.add(new Move(null, target, 4, "Offensive: city cell"));
+					}
+						
+				} // end target is part of a city
+				else // target is not occupied so it has lowest defense
+				{
+					if (inDirection)
+					{
+						possibleMoves.add(new Move(null, target, 2, "Offensive: in direction"));
+					}
+					else
+					{
+						possibleMoves.add(new Move(null, target, 1, "Offensive: generic"));
 					}
 					
-				} // loop through army guys until find one that can attack
-				// if no one could take this neighbor, remove from list
-				neighbors.remove(neighbor);
-				
-			} // loop ends when we have attacked every neighbor or ran out of 
-			// army guys
-			
-			// get a new list because we may have captured some
-			neighbors = city.getNeighbors();
-			count = 0;
-			keepGoing = neighbors.size() > 0;
-			while (keepGoing)
-			{
-				// remove neighbors that are allies (belong to the same player but
-				// not in the same city being evaluated)
-				Cell c = neighbors.get(count);
-				if ((c.getCity() != null) && (c.getCity().getPlayer() == this))
-					neighbors.remove(count);
-				else
-					count++;
-				keepGoing = (neighbors.size() > count);
-			}
-			
-			boolean canStillAttack = neighbors.size() > 0;
-
-			int consumption = city.goldConsumptionEachTurn();
-			
-			// loop back and keep attacking neighbors by buying the 
-			// necessary pieces if I can until I can't
-			while (canStillAttack) 
-			{
-				// find weakest neighbors, build army up to attack them if possible (making sure that i don't have an army too big to support with the amount
-				// of gold i produce each turn
-				Cell weakestNeighbor = neighbors.get(0);
-				for (Cell cell : neighbors) 
-				{
-					if (weakestNeighbor.getDefense() < cell.getDefense())
-						weakestNeighbor = cell;
 				}
+			}// keep going through all enemies
+			
 
-				canStillAttack = false;
-				// find the army piece needed to win this neighbor
+			// need to sort possible moves, highly weighted first, 2nd criteria is weakest first.
+			boolean movesSorted = false;
+			while (!movesSorted) 
+			{
+				movesSorted = true;
+				for (int i = 1; i < possibleMoves.size(); i++ ) // won't enter loop if size < 2
+				{
+					if (possibleMoves.get(i).getWeight() > 
+					    possibleMoves.get(i-1).getWeight())
+					{
+						// swap positions
+						Move temp = possibleMoves.get(i);
+						possibleMoves.set(i,possibleMoves.get(i-1));
+						possibleMoves.set(i-1,temp);
+						movesSorted = false; // keep sorting until no swaps occur
+					}					
+					else if ((possibleMoves.get(i).getWeight() == 
+							  possibleMoves.get(i-1).getWeight()) && 
+							 (possibleMoves.get(i).getTo().getOccupiers().getValue() < 
+							  possibleMoves.get(i-1).getTo().getOccupiers().getValue()))
+					{
+						// swap positions
+						Move temp = possibleMoves.get(i);
+						possibleMoves.set(i,possibleMoves.get(i-1));
+						possibleMoves.set(i-1,temp);
+						movesSorted = false; // keep sorting until no swaps occur
+					}
+					
+				}
+			} // sort moves
+			// make as many moves as possible with available army pieces, buy where needed 
+			// if possible
+			while (possibleMoves.size() > 0)
+			{
+				Move makeMove = possibleMoves.remove(0);
+				boolean moveMade = false;
+
+				// find the weakest army piece available to take this cell
 				for (Occupiers piece : Occupiers.moveablePieces)
 				{
-					// find a piece if any that can take this neighbor
-					// make sure I can afford it
-					if ((piece.getValue() > weakestNeighbor.getDefense())
-						&& (city.armyPieceAffordable(piece)))
+					if (makeMove.getTo().getDefense() < piece.getValue())
 					{
-						// if neighbor is in another city, disconnect it 
-						if (weakestNeighbor.getCity() != null)
+						// if this piece is in availableArmy use that, else buy it if able
+						if (availableArmy.contains(piece))
 						{
-							City wcity = weakestNeighbor.getCity();
-							wcity.getPlayer().cityLostCell(wcity, weakestNeighbor);
-							wcity.getPlayer().determineCityConnectivity(wcity);
+							moveMade = true;
+							availableArmy.remove(piece);
+							cityGainsCell(city, makeMove.getTo(), piece);
 						}
-						// I know I can afford it so just buy it
-						city.buyAnArmyPieceForCity(piece,weakestNeighbor);
-						city.add(weakestNeighbor);
-						weakestNeighbor.setBackground(getColor());
-						weakestNeighbor.setCity(city);
-						neighbors.remove(weakestNeighbor);
-						canStillAttack = true;
-						break; // break out of looping through possible pieces
-					} // piece can win and I can afford the piece
-					
-				} // loop through moveable pieces
-				if ((neighbors.size() == 0) ||
-				    (!city.armyPieceAffordable(Occupiers.PEON)))
-					canStillAttack = false;
-			} // can still attack
-		
+						else if (piece.getCost() < (city.currentGoldValue()))
+						{
+							// this call buys the piece needed and takes target cell
+							moveMade = cityGainsCell(city, makeMove.getTo());
+						}
+
+						if (moveMade)
+							break;// stop looping through army pieces
+					} // if piece can take enemy cell
+				} // find the weakest army piece available to take this cell
+				
+				// if no piece found, couldn't buy it, etc., then just drop this move on the floor
+			} // loop through possible moves
 			
-			// place any remaining army units this city has on empty cells
+			
+			// distribute any remaining army pieces throughout the city without priority
 			boolean moreCells = true;
 			while (availableArmy.size() > 0 && moreCells)
 			{
@@ -188,14 +222,14 @@ public class ComputerPlayer extends Player
 					{
 						c.setOccupiers(availableArmy.get(0));
 						availableArmy.remove(0);
-						break;
+						// if out of army pieces, end city loop
+						if (availableArmy.size() == 0)
+							break;
 					}
-					if (c == city.get(city.size() -1))
-						moreCells = false;
 				}
-
-			} // place remaining army units
-			
+				moreCells = false;				
+			}
+		
 		} // loop through cities
 
 	}
@@ -210,7 +244,6 @@ public class ComputerPlayer extends Player
 			
 			// take all moveable pieces off their cells for redistribution
 			ArrayList<Occupiers> availableArmy = city.makeArmyAvailable();
-			int consumption = city.goldConsumptionEachTurn();
 			
 			// get list of cells that have 5 or more allied neighbors
 			ArrayList<Cell> centerCells = new ArrayList<Cell>();
@@ -223,7 +256,7 @@ public class ComputerPlayer extends Player
 					
 					// if several allies nearby and doesn't already have a castle 
 					// and isn't guarded by a castle nearby
-					if ((allies.size() >= 4) && cell.getDefense() < Occupiers.CASTLE.getValue())
+					if ((allies.size() >= 4) && (cell.getDefense() < Occupiers.CASTLE.getValue()))
 					{
 						// add this as a center city but order them lowest defense first
 						int i = 0;
@@ -256,71 +289,121 @@ public class ComputerPlayer extends Player
 			
 			// no need to adjust consumption #s because castles don't cost anything
 			// to maintain
-
-			ArrayList<Occupiers> pikemen = new ArrayList<Occupiers>();
-			for (Occupiers piece : availableArmy)
-			{			
-				if (piece.ordinal() == Occupiers.PIKEMAN.ordinal())
-					pikemen.add(piece);
-			}
 			
-			// processing for pikemen, if I can afford at least 1
-			// and am able to maintain it with existing army
-			if (( pikemen.size() > 0) ||
-			    ((city.currentGoldValue() > Occupiers.PIKEMAN.getCost() &&
-				(consumption + Occupiers.PIKEMAN.getConsumption())  <= city.                                      goldGeneratedEachTurn())))
+			// find general direction of nearest allied city, if any
+			City nearestAlly = findNearestAlly(city);
+			Cell myVillage = city.getCurrentVillage();
+			Cell allyVillage = nearestAlly.getCurrentVillage();
+			double direction = 0.0;
+			if (!(myVillage == null || allyVillage == null))
+				direction = Math.atan2(allyVillage.getCol() - myVillage.getCol(), allyVillage.getRow() - myVillage.getRow());			
+
+			ArrayList<Move> possibleMoves = new ArrayList<Move>();
+
+			// if city is getting big, try to fill in the middle and near 
+			// the village (thus creating more center cells, i.e. thicker defenses)
+			if (city.size() > 5)
 			{
 				for (Cell cell : city)
 				{
-					ArrayList<Cell> allies = cell.getCityNeighbors();
-					if (allies.size() >= 3)
+					// if this cell is in the general direction of my nearest ally, 
+					// then give more weight to possible moves near this cell
+					double cellDir = 1.0;
+					if (myVillage != null)
+						cellDir = Math.atan2(cell.getCol() - myVillage.getCol(), cell.getRow() - myVillage.getRow());
+					boolean inDirection = (Math.abs(cellDir-direction) < (Math.PI / 100) ? true : false);
+	
+					// build on cells with more than 3 allies or is a village
+					if ((cell.getCityNeighbors().size() > 3) ||
+					     (cell.getOccupiers() == Occupiers.VILLAGE))
 					{
-						// add this as a center city but order them lowest defense first
-						int i = 0;
-						for (i = 0; i < centerCells.size(); i++)
+						for (Cell c : cell.getEnemyNeighbors())
 						{
-							if (cell.getDefense() < centerCells.get(i).getDefense())
-								break;
+							// give more weight to less defense
+							int weight = (c.getDefense() > Occupiers.PEON.getValue() ? 1 : 2);
+							if (inDirection)
+								weight++;
+							possibleMoves.add(new Move(cell, c, weight, "Defensive: bulk up"));
 						}
-
-						centerCells.add(i, cell);
-					} // is it a center city
-				} // find all the center cities
-				
-				// place all pikemen on center cells until we run out of one or the 
-				// other
-				for (int i = 0; (i < pikemen.size()) && (centerCells.size() > 0); i++)
-				{
-					Cell c = centerCells.remove(0);
-					
-					// only place the pikeman if the center cell isn't occupied
-					if (c.getOccupiers() == Occupiers.NONE)
-					{
-						Occupiers pikeman = pikemen.get(0);
-						c.setOccupiers(pikeman);
-						availableArmy.remove(pikeman);
-						pikemen.remove(pikeman);
 					}
-					// go ahead and remove it even if pikeman not placed, so we 
-					// don't end up in an infinite loop
-					centerCells.remove(c);
+					else if (inDirection)
+					{
+						for (Cell c : cell.getEnemyNeighbors())
+						{
+							double cDir = 1.0;
+							if ( myVillage != null)
+								cDir = Math.atan2(c.getCol() - myVillage.getCol(), c.getRow() - myVillage.getRow());
+							if (Math.abs(cDir-direction) < (Math.PI / 100) ? true : false)
+								possibleMoves.add(new Move(cell, c, 1, "Defensive: in direction"));
+							
+						}
+					} // cell is in direction of nearest ally
+				} // loop through cells in city
+			} // city is getting larger
+
+			// need to sort possible moves, least defended first. second sort criteria is weight.
+			boolean movesSorted = false;
+			while (!movesSorted) 
+			{
+				movesSorted = true;
+				for (int i = 1; i < possibleMoves.size(); i++ ) // won't enter loop if size < 2
+				{
+					if (possibleMoves.get(i).getTo().getDefense() < 
+					    possibleMoves.get(i-1).getTo().getDefense())
+					{
+						// swap positions
+						Move temp = possibleMoves.get(i);
+						possibleMoves.set(i,possibleMoves.get(i-1));
+						possibleMoves.set(i-1,temp);
+						movesSorted = false; // keep sorting until no swaps occur
+					}					
+					else if ((possibleMoves.get(i).getTo().getDefense() == 
+							  possibleMoves.get(i-1).getTo().getDefense()) &&
+						     (possibleMoves.get(i).getWeight() < 
+							  possibleMoves.get(i-1).getWeight()))
+					{
+						// swap positions
+						Move temp = possibleMoves.get(i);
+						possibleMoves.set(i,possibleMoves.get(i-1));
+						possibleMoves.set(i-1,temp);
+						movesSorted = false; // keep sorting until no swaps occur
+					}
 					
 				}
+			} // sort moves
+			
+			// make as many moves as possible with available army pieces, or buy it if able
+			while (possibleMoves.size() > 0)
+			{
+				Move makeMove = possibleMoves.remove(0);
+				boolean moveMade = false;
 
-				// now, add pikeman to the lowest defended cities at random until
-				// out of money, or run out of center cities to defend (since 
-				// we only want to defend the weakest, we only pull from the 
-				// first 75% of the list which means, we'll always have 1 left)
-				while ( city.currentGoldValue() > Occupiers.PIKEMAN.getCost()
-					    && centerCells.size() > 0)
+				// find the weakest army piece available to take this cell
+				for (Occupiers piece : Occupiers.moveablePieces)
 				{
-					int i = 0; //numGen.nextInt((int)(centerCells.size()*0.75));
-					city.buyAnArmyPieceForCity(Occupiers.PIKEMAN, centerCells.get(i));
-					centerCells.remove(i);
-				}
+					if (makeMove.getTo().getDefense() < piece.getValue())
+					{
+						if (availableArmy.contains(piece))
+						{
+							moveMade = true;
+							availableArmy.remove(piece);
+							cityGainsCell(city, makeMove.getTo(), piece);
+						}
+						// if move not made, and we have more than enough gold, buy the piece that
+						// is needed to make the move
+						else if (piece.getCost() < (city.currentGoldValue()/2))
+						{
+							moveMade = cityGainsCell(city, makeMove.getTo());
+						}
+					}
+					if (moveMade)
+						break; // stop looping through army pieces
+				} // find the weakest army piece available to take this cell
+				
+			} // loop through possible moves, do the ones I can in the order they appear
 			
-			} // end processing for Pikemen
 			
+			// distribute any remaining army pieces throughout the city without priority
 			boolean moreCells = true;
 			while (availableArmy.size() > 0 && moreCells)
 			{
@@ -338,8 +421,21 @@ public class ComputerPlayer extends Player
 				moreCells = false;				
 			}
 
-// TODO : if enough gold left to buy peons and enough being generated to support peons
-// then distribute them to the cells with the greatest number of enemy neighbors
+			// if enough gold left to buy peons and enough being generated to support peons
+			// then distribute them to the cells with the greatest number of enemy neighbors
+			while (moreCells && city.currentGoldValue() > Occupiers.PEON.getCost()*2)
+			{
+				for(Cell c : city)
+				{
+					if ((c.getOccupiers() == Occupiers.NONE) && 
+					    (c.getEnemyNeighbors().size() > 3))
+					{
+						city.buyAnArmyPieceForCity(Occupiers.PEON, c);
+					}
+				}
+				moreCells = false;				
+					
+			}
 		
 		} // for each city
 		

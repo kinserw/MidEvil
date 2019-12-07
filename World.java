@@ -1,51 +1,70 @@
 import java.awt.geom.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.awt.*;
 import java.util.*;
 import javax.swing.*;
 
 import java.awt.event.*;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import javax.imageio.ImageIO;
-
 
 public class World extends JPanel implements ComponentListener, MouseListener, MouseMotionListener, Runnable 
 {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 2112960996668811817L;
 	public static World theWorld = null;
 	public static int rows = 30;
 	public static int cols = 30;
 	public static int density = 50;
 	public static int numPlayers = 6;
 	public static Cell currentCell = null;
+	public static int endTurnCol = 47;
+	public static int endTurnRow = 5;
+	public static int endTurnWidth = 95;
+	public static int endTurnHeight = 15;
+	public static Rectangle endTurnRectangle = new Rectangle(endTurnRow, endTurnCol, endTurnWidth, endTurnHeight);
 	
 	public static int rowOffset = 20;
 	public static int colOffset = 20;
 	
-	private static Image originalCursor = null;
+	public static int difficulty = 8;
 	
 	private Cell[][] myMap = null;
 	
+	public transient boolean myKeepRunning = false;
 	private int whosTurnItIs = 0;
-	private HumanPlayer human = null;
-	private City citySelected = null;
-	private Cell movingPieceFrom = null;
+	private transient HumanPlayer human = null;
+	private int humanIndex = 0;
+	private transient City citySelected = null;
+	private transient Cell movingPieceFrom = null;
 	private int blinking = 1;
-	private Occupiers movingPiece = Occupiers.NONE;
-	private boolean buyingAPiece = false;
-	private ArrayList<Cell> myPlayableMap;
+	private transient Occupiers movingPiece = Occupiers.NONE;
+	private transient boolean buyingAPiece = false;
+	private transient ArrayList<Cell> myPlayableMap;
 	private ArrayList<Player> myPlayers;
-	private int myDifficulty = 8; // scale of 1 to 10; 10 being the hardest
 	
 	private static final Color[] playerColors =
 	{Color.LIGHT_GRAY,
-	 Color.DARK_GRAY,
+	 Color.CYAN,
 	 Color.PINK,
 	 Color.RED,
 	 Color.ORANGE,
+	 Color.MAGENTA,
 	 Color.YELLOW,
-	 Color.CYAN,
-	Color.MAGENTA};
+	 Color.DARK_GRAY};	
+	
+	private static final String[] playerColorNames =
+	{"LIGHT_GRAY",
+	 "CYAN",
+	 "PINK",
+	 "RED",
+	 "ORANGE",
+	 "MAGENTA",
+	 "YELLOW",
+	 "DARK_GRAY"
+	};
 
 	// World default constructor
 	public World() {
@@ -57,7 +76,7 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 		
 	} // end World constructor
  
-  
+
 	
 	@Override
 	// override base class methods so that we can draw all the cells in our world
@@ -83,7 +102,7 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 						// blink the human pieces that can be moved
 						if ((cell.getCity() != null) && 
 						    (cell.getCity().getPlayer() == human) &&
-							(cell.getOccupiers() != Occupiers.VILLAGE) &&
+//							(cell.getOccupiers() != Occupiers.VILLAGE) &&
 							(cell.getOccupiers() != Occupiers.CASTLE) &&
 							(cell.ableToAttack()) &&
 							(blinking < 0))
@@ -94,46 +113,56 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 					}
 				} 
 			}
-
-			g.setColor(Color.WHITE);
-			g.fillRoundRect(0,0,50,colOffset,0,0);
-			g.setColor(Color.BLACK);
-			g.drawString("City: ",0,colOffset);
-			if ((currentCell != null) && (currentCell.getCity() != null))
+			
+			// draw end turn button if player is human
+			if (myPlayers.get(whosTurnItIs) == human)
 			{
-
-				g.setColor(currentCell.getBackground());
-
-				g.fillRoundRect(50, 0,	rowOffset, colOffset, 2, 2);
+				g.setColor(human.getColor());
+				g.fill3DRect(endTurnRow, endTurnCol, endTurnWidth, endTurnHeight, true);
 				g.setColor(Color.BLACK);
-				g.drawString("Gold: " + currentCell.getCity().currentGoldValue(), 
-				               50, colOffset);
-			}
-			if ((myPlayers.get(whosTurnItIs) == human) && (citySelected != null))
-			{
-				for (int i = 0; i < Occupiers.placeablePieces.length; i++)
-					myMap[i][1].setOccupiers(Occupiers.NONE);
-				
-				ArrayList<Occupiers> buyable = human.whatICanBuy(citySelected);
-				int number = 0;
-				for (Occupiers piece : buyable)
-				{
-					myMap[number][1].setBackground(human.getColor());
-					myMap[number++][1].setOccupiers(piece);
-				}
-				// draw outline of selected City
-				g.setColor(Color.BLACK);
-				((Graphics2D)g).draw(citySelected.getArea());
-/* 				for (Polygon segment : citySelected.getEdges())
-				{
-					g.drawLine(segment.xpoints[0], segment.ypoints[0],
-					           segment.xpoints[1], segment.ypoints[1]);
-				} */
+				g.drawString("End Turn ", 7, colOffset*3);
 			}
 			else
 			{
-				for (int i = 0; i < Occupiers.placeablePieces.length; i++)
-					myMap[i][1].setOccupiers(Occupiers.NONE);
+				g.setColor(Color.BLUE);
+				g.fillRect(endTurnRow, endTurnCol, endTurnWidth, endTurnHeight);
+			}
+			
+			g.setColor(Color.BLACK);
+			/*
+			 * if (currentCell != null) g.drawString("Cell @ " + currentCell.getRow() + ", "
+			 * + currentCell.getCol() + " belongs to city #" + (currentCell.getCity() ==
+			 * null ? "none" : currentCell.getCity().getID()), 5, colOffset*4);
+			 */
+			
+			// clear the line of buyable pieces
+			int number = 60/rowOffset;
+			for (int i = 0; i < Occupiers.placeablePieces.length; i++)
+				myMap[number+i][0].setOccupiers(Occupiers.NONE);
+			
+			// display what the human player can buy for the city selected
+			if ((myPlayers.get(whosTurnItIs) == human) && (citySelected != null))
+			{
+
+				g.setColor(Color.BLACK);
+				g.drawString("Buy: ", 5, colOffset);
+				g.drawString("Gold: +" + citySelected.currentGoldValue() + ", -" + citySelected.goldConsumptionEachTurn(), 
+			               5, colOffset*2);
+				
+				ArrayList<Occupiers> buyable = human.whatICanBuy(citySelected);
+				for (Occupiers piece : buyable)
+				{
+					//myMap[number][1].setBackground(human.getColor());
+					myMap[number++][0].setOccupiers(piece);
+				}
+
+			}
+			
+			if (citySelected != null)
+			{
+				// draw outline of selected City
+				g.setColor(Color.BLACK);
+				((Graphics2D)g).draw(citySelected.getArea());
 			}
 
 		} // end try block
@@ -155,6 +184,9 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 	
 	private Cell findCellAt(int relativeX, int relativeY)
 	{
+		if (!myKeepRunning || myMap == null)
+			return null;
+		
 		Cell cell = null;
 
 		Rectangle rectangle = new Rectangle(0,0,rowOffset, colOffset);
@@ -188,16 +220,14 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 	@Override
 	public void mouseClicked(MouseEvent e) 
 	{
-		if (e.getButton() == 3) 
-		{
-			human.turnIsOver();
-		}
+	
 		if (e.getButton() == 1) 
 		{
 			Cell cell = findCellAt(e.getX(),e.getY());
 			if ((cell != null) &&  
-			    ((cell.getCity() != null ) && 
-			    (cell.getCity().getPlayer() == human)))
+			    ((cell.getCity() != null ) 
+//			    && (cell.getCity().getPlayer() == human)
+			    ))
 			{
 				citySelected = cell.getCity();
 			}
@@ -245,14 +275,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 				this.setCursor( customCursor );
 	
 			}
-			if (cell.getCity() != null)
-			{
-				System.out.println("dumping info about cell at " + cell.getRow() +", " + cell.getCol());
-				System.out.println("\tcity size = " + cell.getCity().size() + ",  current gold = " + cell.getCity().currentGoldValue() + ", army size = " + cell.getCity().getArmy().size());
-				for (Occupiers piece : cell.getCity().getArmy())
-					System.out.print(Occupiers.ourChar[piece.ordinal()] + ", ");
-				System.out.println(" " );
-			}
+
 			repaint();
 		} // if btn one and cell not null
 
@@ -271,23 +294,33 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 	
 	@Override
 	public void mouseMoved(MouseEvent e) {
-		Cell cell = findCellAt(e.getX(),e.getY());
-		if ((cell != null) && (cell.getCity() != null))
+		if (myMap != null)
 		{
-			currentCell = cell;
+			Cell cell = findCellAt(e.getX(),e.getY());
+			if ((cell != null) && (cell.getCity() != null))
+			{
+				currentCell = cell;
+			}
+			else
+				currentCell = null;
 		}
-		else
-			currentCell = null;
-
 	}
 
 	@Override
 	public void mouseReleased(MouseEvent e) 
 	{ 
+		if (endTurnRectangle.contains(e.getX(),e.getY()))
+		{
+			human.turnIsOver();
+			return;
+		}
+
+		// this logic is for placing the selected army piece in the same
+		// city as selected (either moving an existing piece or buying one)
 		// TODO consider moving a lot if not all this logic to the City class
 		Cell cell = findCellAt(e.getX(),e.getY());
 		if ((cell != null) && (cell.getCity() != null) &&
-		    (cell.getCity() == citySelected))
+		    (cell.getCity().equals(citySelected)))
 		{
 			currentCell = cell;
 			// can't move it to a cell with an piece already there
@@ -321,8 +354,8 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 		if ((cell != null) && 
 		       ((movingPieceFrom != null) || 
 			         (buyingAPiece && (movingPiece != Occupiers.CASTLE)))
-			&& (citySelected != cell.getCity())
-			&& (citySelected != null) && (citySelected.getNeighbors().contains(cell)))
+			&& (citySelected != null) 
+			&& (!citySelected.equals(cell.getCity())) && (citySelected.getNeighbors().contains(cell)))
 		{
 			// get defense value, compare to moving piece attack value
 			if (cell.getDefense() < movingPiece.getValue())
@@ -330,13 +363,11 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 
 				// tell enemy player their city lost a cell.
 				// player will adjust the status of it's city accordingly.
-if ((cell.getBackground() != Color.GREEN) && (cell.getCity() == null))
-	System.out.println(" ERROR: ATTACKING A CELL WITHOUT A CITY????");
+
 				City city = cell.getCity();
 				if (city != null)
 				{
 					city.getPlayer().cityLostCell(city,cell);
-					cell.setCity(null); // other next call adds it back in
 					city.getPlayer().determineCityConnectivity(city);
 				}
 				
@@ -394,24 +425,191 @@ if ((cell.getBackground() != Color.GREEN) && (cell.getCity() == null))
 	
 	} // end mouseDragged
 
+	public void newGame()
+	{
+		myMap = null;
+		myKeepRunning = true;
+	}
+  
+	public void resetWorld()
+	{
+		
+		myKeepRunning = false;
+		for (int i = 0; myMap != null && i < rows; i++)
+		{
+			for (int j = 0; j< cols; j++)
+			{
+				myMap[i][j].setGeology(Geology.WATER);
+				myMap[i][j].setBackground(Color.BLUE);
+				myMap[i][j].setCity(null);
+				myMap[i][j].setOccupiers(Occupiers.NONE);
+				citySelected = null;
+				currentCell = null;
+			}
+		}
+		repaint();
+	}
+	
+	public void saveGame(ObjectOutputStream out) throws IOException
+	{
+        // Method for serialization of object 
+        out.writeInt(rows);
+        out.writeInt(cols);
+        out.writeInt(density);
+        out.writeInt(difficulty);
+        out.writeInt(rowOffset);
+        out.writeInt(colOffset);
+        out.writeInt(myPlayers.size());
+        out.writeInt(humanIndex);
+        
+        // can't save the whole world because it is 
+        // runnable and it is too complicated to
+        // drop existing world and reconnect.
+        // so we only save the map (all cells)
+        for (int i = 0; i < rows; i++)
+        	for (int j = 0; j < cols; j++)
+        	{
+        		out.writeObject(myMap[i][j]);
+        	}
+       
+        
+        for (int i = 0; i < myPlayers.size(); i++)
+        {
+        	Player player = myPlayers.get(i);
+        	out.writeObject(player.getColor());
+        	out.writeObject(player.getColorName());
+        	
+        	// rebuild player's cities
+        	int count = player.getCities().size(); // city count
+        	out.writeInt(count);
+        	for (int a = 0; a < count; a++)
+        	{
+        		City city = player.getCities().get(a);
+        		out.writeObject(city); // save non-reference items
+        		
+        		city.saveCity(out); // save reference items
+        	}
+        	
+        } // end loop through players to save their cities
+	} // end saveGame
+	
+	public void loadGame(ObjectInputStream in) throws IOException, ClassNotFoundException
+	{
+		myKeepRunning = false; // stop game if not already stopped
+		citySelected = null;
+		currentCell = null;
+		movingPieceFrom = null;
+		buyingAPiece = false;
+		movingPiece = Occupiers.NONE;
+
+		
+        rows = in.readInt();
+        cols = in.readInt();
+        density = in.readInt();
+        difficulty = in.readInt();
+        rowOffset = in.readInt();
+        colOffset = in.readInt();
+        int playerCount = in.readInt();
+        humanIndex = in.readInt();
+		whosTurnItIs = humanIndex;
+
+		myMap = new Cell[rows][cols];
+    	for (int r = 0; r < rows; r++)	
+    		for (int c = 0; c < cols; c++)
+    		{
+    			myMap[r][c] = (Cell)in.readObject();
+    			myMap[r][c].computeArea();
+    		}
+    	
+        // now World has everything it needs to rebuild
+        
+        myPlayers = new ArrayList<Player>();
+        for (int i = 0; i < playerCount; i++)
+        {
+        	Player player = null;
+        	if (i == humanIndex)
+        	{
+        		human = new HumanPlayer(false,false);
+        		player = human;
+        	}
+        	else
+        		player = new ComputerPlayer(difficulty);
+        	myPlayers.add(player);
+        	Color color = (Color)in.readObject();
+        	player.setColor(color);
+        	String colorName = (String)in.readObject();
+        	player.setColorName(colorName);
+        	
+        	
+        	// rebuild player's cities
+        	int count = in.readInt(); // city count
+        	for (int a = 0; a < count; a++)
+        	{
+        		City city = (City)in.readObject(); // load non-reference items
+        		city.loadCity(in, myMap); // loads reference items
+        		city.calculateEdges(colOffset,rowOffset);
+        		
+        		// associate city with this player
+        		player.getCities().add(city);
+        		city.setPlayer(player);
+        	}
+        	
+        }
+        
+        // rebuild everything that depends on Cells
+        myPlayableMap = new ArrayList<Cell>();
+    	for (int r = 0; r < rows; r++)	
+    		for (int c = 0; c < cols; c++)
+    		{
+    			Cell cell = myMap[r][c];
+    			if (cell.getGeology() != Geology.WATER)
+    				myPlayableMap.add(cell);
+    			else
+    				// in case they saved with a selected city
+    				// need to clear the army pieces that are 
+    				// available to buy
+    				cell.setOccupiers(Occupiers.NONE);
+    			
+    			// rebuild reference data for each cell
+    			setNeighbors(r,c);
+    		}
+
+	}
+  
 	@Override
 	public void run() 
 	{
-
-		if (myMap == null) // if we haven't created a world yet, do so now.
+		while (true)
 		{
-			myPlayableMap = new ArrayList<Cell>();
-			buildMap(rows, cols, density);
-			assignPlayers(4, 3); // (int)(Math.random()*numPlayers)
-		
-			do 
+			if (myKeepRunning)
 			{
-			repaint(); // force a repaint of canvas
-			takeTurn();
+				if (myMap == null) // if we haven't created a world yet, do so now.
+				{
+					myPlayableMap = new ArrayList<Cell>();
+					buildMap(rows, cols, density);
+					humanIndex = (int)(Math.random()*numPlayers);
+					assignPlayers(numPlayers, humanIndex);
+				}
 			
-			} while (true);
-		} 
-	} // end run
+				do 
+				{
+				repaint(); // force a repaint of canvas
+				takeTurn();
+				
+				} while (myKeepRunning);
+			} 
+			else
+			synchronized(this)
+			{
+				try {
+					wait(100);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+} // end run
 	
 	
 	public void buildMap(int row, int col, int landDensity)
@@ -447,51 +645,7 @@ if ((cell.getBackground() != Color.GREEN) && (cell.getCity() == null))
 				Cell cell = myMap[i][j];
 				if (cell.getGeology() != Geology.WATER) // no need to do this for water
 				{
-					ArrayList<Cell> neighbors = new ArrayList<Cell>();
-					
-					for (int a = 0; a < 3; a++) {
-						for (int b = 0; b < 3; b++) {
-							// catch and ignore any out of bounds exceptions as this 
-							// indicates we are looking for neighbors outside the mapped area
-							try {
-								// don't add the cell as its own neighbor
-								if (!(a == 1 && b == 1))
-								{
-									// don't add water cells as neighbors either
-									Cell n = myMap[i-1+a][j-1+b];
-									if (n.getGeology() != Geology.WATER)
-										neighbors.add(n);
-								}
-							}
-							catch (Exception e)
-							{}
-						}
-					}
-					cell.setNeighbors(neighbors);
-					
-					// Find far neighbors (cells one past neighbors)
-					ArrayList<Cell> farNeighbors = new ArrayList<Cell>();
-					
-					for (int a = 0; a < 5; a++) {
-						for (int b = 0; b < 5; b++) {
-							// catch and ignore any out of bounds exceptions as this 
-							// indicates we are looking for neighbors outside the mapped area
-							try {
-								// don't add the cell as its own neighbor
-								if (!(a == 1 && b == 1))
-								{
-									// don't add water cells or neighbors either
-									Cell n = myMap[i-2+a][j-2+b];
-									if ((n.getGeology() != Geology.WATER) &&
-										(!neighbors.contains(n)))
-										farNeighbors.add(n);
-								}
-							}
-							catch (Exception e)
-							{}
-						}
-					}
-					cell.setFarNeighbors(farNeighbors);
+					setNeighbors(i,j);
 				} // find neighbors for cells that aren't water
 			}
 		}		
@@ -506,15 +660,15 @@ if ((cell.getBackground() != Color.GREEN) && (cell.getCity() == null))
 		int maxCol = myMap[0].length;
 		int centerX = maxRow/2;
 		int centerY = maxCol/2;
-		double distance = Math.sqrt( Math.pow((row-centerX),2) + 
-                                  Math.pow((col-centerY), 2));		
-		// if cell location is beyond landmass, it is a water cell
+//double distance = Math.sqrt( Math.pow((row-centerX),2) + 
+//                          Math.pow((col-centerY), 2));		
+		// if cell location is beyond land mass, it is a water cell
 		Geology landType = Geology.WATER;
 		Random numGen = new Random();
 		int maxRowDistanceFromCenter = (int)(landDensity/100.0 * maxRow/2.0);
 		int maxColDistanceFromCenter = (int)(landDensity/100.0 * maxCol/2.0);
-		int rowDistanceFromCenter = Math.abs(row-centerX);
-		int colDistanceFromCenter = Math.abs(col-centerY);
+//int rowDistanceFromCenter = Math.abs(row-centerX);
+//int colDistanceFromCenter = Math.abs(col-centerY);
 
 		
 		// if near the edge, increase probability of water and zero mtns
@@ -561,10 +715,11 @@ if ((cell.getBackground() != Color.GREEN) && (cell.getCity() == null))
 	{
 		myPlayers = new ArrayList<Player>();
 		
+		@SuppressWarnings("unchecked")
 		ArrayList<Cell> availableCells = (ArrayList<Cell>)myPlayableMap.clone();
 		Player newPlayer;
-		int avgNumCellsPerPlayer = 12-myDifficulty;
-		int variance = 5-myDifficulty/2;
+//int avgNumCellsPerPlayer = 12-myDifficulty;
+//int variance = 5-myDifficulty/2;
 		
 		for (int i = 0; i < numberOfPlayers; i++)
 		{
@@ -575,11 +730,12 @@ if ((cell.getBackground() != Color.GREEN) && (cell.getCity() == null))
 			}
 			else 
 			{
-				newPlayer = new ComputerPlayer();
+				newPlayer = new ComputerPlayer(World.difficulty);
 			}
 			myPlayers.add(newPlayer);
 							
 			newPlayer.setColor(playerColors[i+1]);
+			newPlayer.setColorName(playerColorNames[i+1]);
 
 			// assign territory
 			for (int j=0;j < 10; j++) // each player gets 10 cities
@@ -669,45 +825,95 @@ once all cities are made,
 		// if numberOfPlayers is 1, then there is a winner
 		if (myPlayers.size() == 1) 
 		{
-			System.out.println("player " + myPlayers.get(0).getColor() + " wins");
-			System.exit(0);
+			if (myKeepRunning)
+			{
+				JOptionPane.showMessageDialog(null, "player " + myPlayers.get(0).getColorName() + " wins");
+				myKeepRunning = false;
+			}
+			return;
+
 		}
 		if (whosTurnItIs >= myPlayers.size()) // start over with first player
 			whosTurnItIs = 0;
-if (myPlayers.get(whosTurnItIs) != human)
-{
-// debug current player
-System.out.println("dumping data for player # " + whosTurnItIs);
-myPlayers.get(whosTurnItIs).debugDump();			
-}
+
 		// only increments to the next player if current player returns true
 		if (myPlayers.get(whosTurnItIs).takeTurn())
 		{
 			whosTurnItIs++;
 			citySelected = null;
+
+			int count = 0;
+			
+			// remove any players that have zero cities left
+			boolean keepGoing = (myPlayers.size()> count);
+			while (keepGoing)
+			{
+				Player player = myPlayers.get(count);
+
+				if (player.getCities().size() == 0)
+				{
+					myPlayers.remove(player);
+				}
+				else 
+					count+= 1;
+				keepGoing = (myPlayers.size()> count);
+			}	
 		}
 		
 		repaint();
-		int count = 0;
-		
-		// remove any players that have zero cities left
-		boolean keepGoing = (myPlayers.size()> count);
-		while (keepGoing)
-		{
-			Player player = myPlayers.get(count);
-
-			if (player.getCities().size() == 0)
-			{
-				myPlayers.remove(player);
-			}
-			else 
-				count+= 1;
-			keepGoing = (myPlayers.size()> count);
-		}		
+	
 
 		// if total defense of all computer is < 25% of human's then surrender
 	}
 	
-	
+	private void setNeighbors(int row, int col)
+	{
+		ArrayList<Cell> neighbors = new ArrayList<Cell>();
+		Cell cell = myMap[row][col];
+		
+		for (int a = 0; a < 3; a++) {
+			for (int b = 0; b < 3; b++) {
+				// catch and ignore any out of bounds exceptions as this 
+				// indicates we are looking for neighbors outside the mapped area
+				try {
+					// don't add the cell as its own neighbor
+					if (!(a == 1 && b == 1))
+					{
+						// don't add water cells as neighbors either
+						Cell n = myMap[row-1+a][col-1+b];
+						if (n.getGeology() != Geology.WATER)
+							neighbors.add(n);
+					}
+				}
+				catch (Exception e)
+				{}
+			}
+		}
+		cell.setNeighbors(neighbors);
+		
+		// Find far neighbors (cells one past neighbors)
+		ArrayList<Cell> farNeighbors = new ArrayList<Cell>();
+		
+		for (int a = 0; a < 5; a++) {
+			for (int b = 0; b < 5; b++) {
+				// catch and ignore any out of bounds exceptions as this 
+				// indicates we are looking for neighbors outside the mapped area
+				try {
+					// don't add the cell as its own neighbor
+					if (!(a == 1 && b == 1))
+					{
+						// don't add water cells or neighbors either
+						Cell n = myMap[row-2+a][col-2+b];
+						if ((n.getGeology() != Geology.WATER) &&
+							(!neighbors.contains(n)))
+							farNeighbors.add(n);
+					}
+				}
+				catch (Exception e)
+				{}
+			}
+		}
+		cell.setFarNeighbors(farNeighbors);
+	}
 }
  

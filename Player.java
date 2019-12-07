@@ -1,10 +1,17 @@
 import java.util.*;
 import java.awt.Color;
+import java.io.Serializable;
 
-public class Player
+public class Player implements Serializable
 {
-	protected ArrayList<City> myCities;
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 6139076431935707192L;
+	private transient ArrayList<Cell> myAttackingPieces = new ArrayList<Cell>();
+	protected transient ArrayList<City> myCities;
 	protected Color myColor;
+	protected String myColorName;
 	
 	public Player()
 	{
@@ -50,6 +57,15 @@ public class Player
 		return myColor;
 	}
 	
+	public void setColorName(String clr)
+	{
+		myColorName = clr;
+	}
+	public String getColorName()
+	{
+		return myColorName;
+	}
+	
 	
 	// returns true if done with turn (this is needed for the human players)
 	public boolean takeTurn()
@@ -87,7 +103,7 @@ public class Player
 			{
 				City otherCity = findCityWithCell(cell);
 				//Note: if this cell is part of another city, that city 
-				// must come later in the collection otherwise, or that city
+				// must come later in the collection otherwise that city
 				// would have identified this city as a neighbor and already
 				// merged
 				// Note: city might have multiple cells touching another
@@ -148,9 +164,8 @@ public class Player
 		if (!myCities.contains(city))
 			return;
 		
-		if (city != cell.getCity())
+		if (!city.equals(cell.getCity()))
 		{
-			System.out.println("Cell passed in does not belong to city passed in");
 			return;
 		}
 
@@ -161,11 +176,11 @@ public class Player
 		Occupiers lostPiece = cell.getOccupiers();
 		cell.setOccupiers(Occupiers.NONE);
 		cell.setBackground(Color.GREEN);
-		
+		cell.setCity(null);
+	
 		// does city only have one cell or less?
 		if (city.size() < 2)
 		{
-			cell.setCity(null);
 			if (city.size() == 1)
 			{
 				city.get(0).setCity(null);
@@ -174,7 +189,6 @@ public class Player
 				city.remove(city.get(0));
 			}
 			myCities.remove(city);
-			cell.setCity(null);
 			return;
 		} // city can't exist with only one cell
 		
@@ -190,9 +204,8 @@ public class Player
 		// if lost cell had an army piece on it, remove this from city's army
 		else if (lostPiece != Occupiers.NONE)
 		{
-			cell.getCity().getArmy().remove(cell.getOccupiers());
+			city.getArmy().remove(cell.getOccupiers());
 		}		
-		cell.setCity(null);
 	} // city lost cell
 	
 	public void determineCityConnectivity(City city)
@@ -220,6 +233,11 @@ public class Player
 			myCities.remove(city);
 			return;
 		}
+		if (city.size() == 1)
+		{ 
+			cityLostCell(city,city.get(0));
+			return;
+		}
 		
 		// if the city is disjointed, then picking any cell at random and building
 		// a list of all cells connected to that cell will result in the new list
@@ -242,6 +260,12 @@ public class Player
 		while (newCityIndex < newCity.size())
 		{
 			ArrayList<Cell> cells = newCity.get(newCityIndex).getCityNeighbors();
+			int cnCount = cells.size();
+			int alliedCount = newCity.get(newCityIndex).getAlliedNeighbors().size();
+			int enemyCount = newCity.get(newCityIndex).getEnemyNeighbors().size();
+			int allCount = newCity.get(newCityIndex).getNeighbors().size();
+			if (cnCount + alliedCount + enemyCount != allCount)
+				System.out.println("huh?");
 
 			for(Cell cell : cells)
 			{
@@ -250,7 +274,6 @@ public class Player
 			}
 			newCityIndex++;
 		}
-		System.out.println("new city size = " + newCity.size() + "  and city is " + city.size());
 		
 		//once no more allied neighbors can be found and all the cells in the new
 		//          list have been checked, compare #in new list to #in original city
@@ -292,7 +315,6 @@ public class Player
 		if (city.size() == 1)
 		{
 			cityLostCell(city,city.get(0));
-			myCities.remove(city);
 		}
 		
 		if (newCity.size() > 0)
@@ -316,15 +338,17 @@ public class Player
 			determineCityConnectivity(city);
 	} // end determineCityConnectivity
 	
-	private void findNewVillage(City city)
+	private Cell findNewVillage(City city)
 	{
-		boolean villagePlaced = false;
+		Cell location = city.getCurrentVillage();
+		boolean villagePlaced = (location != null);
 		for (int index = 0;!villagePlaced && index < city.size(); index++)
 		{
 			if (city.get(index).getOccupiers() == Occupiers.NONE)
 			{
 				villagePlaced = true;
 				city.get(index).setOccupiers(Occupiers.VILLAGE);
+				location = city.get(index);
 			}
 		}
 		// if village not placed then all cells occupied, delete occupier
@@ -333,10 +357,107 @@ public class Player
 		{
 			city.getArmy().remove(city.get(0).getOccupiers());
 			city.get(0).setOccupiers(Occupiers.VILLAGE);
+			location = city.get(0);
 		}
-		
+		return location;
 	}
 
+	
+	// takes cell, and places piece on it
+	public void cityGainsCell(City city, Cell cell, Occupiers piece)
+	{
+		// end processing if params are null or if this isn't my city or the city already
+		// has this cell in it.
+		if (city == null || cell == null || !myCities.contains(city) || city.contains(cell))
+			return;
+		
+		// tell cell's current player that their city lost this cell
+		if (cell.getCity() != null) 
+		{
+			City cellCity = cell.getCity();
+			cellCity.getPlayer().cityLostCell(cellCity, cell);
+			cellCity.getPlayer().determineCityConnectivity(cellCity);
+		}
+		
+		cell.setCity(city);
+		cell.setBackground(this.getColor());
+		cell.setOccupiers(piece);
+		addToAttackingPieces(cell);
+		city.add(cell);
+	}
+	
+	// buys necessary army piece to take cell if possible. return false if can't.
+	public boolean cityGainsCell(City city, Cell cell)
+	{
+		// end processing if params are null or if this isn't my city or the city already
+		// has this cell in it.
+		if (city == null || cell == null || !myCities.contains(city) || city.contains(cell))
+			return false;
+		
+		// what is the weakest army piece able to take this cell?
+		for (Occupiers piece : Occupiers.moveablePieces)
+		{
+			if ((piece.getValue() > cell.getDefense()) &&
+			    (piece.getCost() < city.currentGoldValue()))
+			{
+				// tell cell's current player that their city lost this cell
+				if (cell.getCity() != null)
+				{
+					City cellCity = cell.getCity();
+					cellCity.getPlayer().cityLostCell(cellCity, cell);
+					cellCity.getPlayer().determineCityConnectivity(cellCity);				}
+								
+				// make the cell mine
+				cell.setCity(city);
+				cell.setBackground(this.getColor());
+				addToAttackingPieces(cell);
+				city.add(cell);
+				
+				city.buyAnArmyPieceForCity(piece, cell);
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public City findNearestAlly(City city)
+	{
+		// for now, just do distance from village to village
+		City nearestCity = city;
+		double distance = 1000000.0;
+		Cell cell = findNewVillage(city);
+		Cell allyCell;
+		for (City ally : myCities)
+		{
+			if (ally != city)
+			{
+				allyCell = findNewVillage(ally);
+				double allyDistance = Math.sqrt(Math.pow(allyCell.getCol()-cell.getCol(), 2) +
+				                                Math.pow(allyCell.getRow()-cell.getRow(), 2));
+				if (allyDistance < distance)
+				{
+					nearestCity = ally;
+					distance = allyDistance;
+				}
+			}
+		}
+		return nearestCity;
+	}
+
+	public void resetAttackingPieces()
+	{
+		for (Cell cell : myAttackingPieces)
+		{
+			cell.ableToAttack(true);
+		}
+		myAttackingPieces.clear();
+	}
+	
+	public void addToAttackingPieces (Cell cell)
+	{
+		cell.ableToAttack(false);
+		myAttackingPieces.add(cell);
+	}
 	
 	public void debugDump()
 	{

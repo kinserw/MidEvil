@@ -1,16 +1,22 @@
-import javax.swing.*;
-import java.awt.Color;
 import java.util.*;
 
 
 public class HumanPlayer extends Player
 {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 6711485896117367368L;
 	private boolean myTurnIsOver = false;
 	private boolean myFirstTimeThru = true;
-	private ArrayList<Cell> myAttackingPieces = new ArrayList<Cell>();
 	
 	public HumanPlayer()
 	{
+	}
+	public HumanPlayer(boolean firstTimeThru, boolean turnIsOver)
+	{
+		this.myTurnIsOver = turnIsOver;
+		this.myFirstTimeThru = firstTimeThru;
 	}
 	
 	public void turnIsOver()
@@ -89,20 +95,6 @@ public class HumanPlayer extends Player
 				buyable.add(piece);
 		}
 		return buyable;
-	}
-	public void resetAttackingPieces()
-	{
-		for (Cell cell : myAttackingPieces)
-		{
-			cell.ableToAttack(true);
-		}
-		myAttackingPieces.clear();
-	}
-	
-	public void addToAttackingPieces (Cell cell)
-	{
-		cell.ableToAttack(false);
-		myAttackingPieces.add(cell);
 	}
 
 }
