@@ -41,6 +41,7 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 	private transient Cell movingPieceFrom = null;
 	private int blinking = 1;
 	private transient Occupiers movingPiece = Occupiers.NONE;
+	private boolean multiPieceMove = false;
 	private transient boolean buyingAPiece = false;
 	private transient ArrayList<Cell> myPlayableMap;
 	private ArrayList<Player> myPlayers;
@@ -226,7 +227,7 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 			Cell cell = findCellAt(e.getX(),e.getY());
 			if ((cell != null) &&  
 			    ((cell.getCity() != null ) 
-//			    && (cell.getCity().getPlayer() == human)
+			    && (cell.getCity().getPlayer() == human)
 			    ))
 			{
 				citySelected = cell.getCity();
@@ -239,9 +240,48 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 	public void mousePressed(MouseEvent e) 
 	{ 
 		Cell cell = findCellAt(e.getX(),e.getY());
-		if ((e.getButton() == 1) && (cell != null)) 
+		// only process if not btn 1 and not already in a multi piece move action
+		if ((e.getButton() != 1) && !multiPieceMove && (cell != null))
 		{
 
+			// if cell is the human's then enable moving the pieces
+			if ((cell.ableToAttack() &&
+			    ((cell.getCity() != null ) &&  
+			    (cell.getCity().getPlayer() == human))))
+			{
+				citySelected = cell.getCity();
+				for (Occupiers piece : Occupiers.moveablePieces)
+				{
+					// find the piece they clicked on
+					if (cell.getOccupiers().ordinal() == piece.ordinal())
+					{
+						// make sure they have more than one
+						if (citySelected.setMultiMovePiece(piece))
+						{
+							movingPieceFrom = cell;
+							movingPiece = piece;
+							this.multiPieceMove = true;
+							Cursor customCursor = 
+		Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal()], new Point(0, 0), "customCursor");
+							Toolkit.getDefaultToolkit().getBestCursorSize(64, 64);
+							this.setCursor( customCursor );
+						}
+					}
+
+				}
+			} // end of moving human pieces on the board
+		} // end multiple piece move
+			
+		// see if the player is moving an existing piece or buying one
+		if ((e.getButton() == 1) && (cell != null)) 
+		{
+			// if btn 1 pressed then cancel multiPieceMove if active
+			if (this.multiPieceMove)
+			{
+				citySelected.cancelMultiMovePiece();
+				multiPieceMove = false;
+			}
+			
 			// if cell is the human's then enable moving the pieces
 			if ((cell.ableToAttack() &&
 			    ((cell.getCity() != null ) && 
@@ -314,6 +354,8 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 			human.turnIsOver();
 			return;
 		}
+		
+
 
 		// this logic is for placing the selected army piece in the same
 		// city as selected (either moving an existing piece or buying one)
@@ -339,8 +381,20 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 				// else if human is moving it within the same city,...
 				else if (movingPieceFrom != null)
 				{
-					cell.setOccupiers(movingPiece);
-					movingPieceFrom.setOccupiers(Occupiers.NONE);
+					if (this.multiPieceMove)
+					{
+						cell.setOccupiers(movingPiece);
+						if (!cell.getCity().decrementMultiMovePieces())
+						{
+							movingPieceFrom = null;
+							multiPieceMove = false;
+						}
+					}
+					else
+					{
+						cell.setOccupiers(movingPiece);
+						movingPieceFrom.setOccupiers(Occupiers.NONE);
+					}
 				}
 			}
 		}
@@ -387,6 +441,15 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 				else // buyAnArmyPieceForCity handles this so do it if not buying
 				{
 					cell.setOccupiers(movingPiece);
+					if (this.multiPieceMove)
+					{
+						if (!cell.getCity().decrementMultiMovePieces())
+						{
+							movingPieceFrom = null;
+							multiPieceMove = false;
+						}
+					}
+
 				}
 				
 				// can't move this piece again this turn since I attacked with it
@@ -396,25 +459,36 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 				// check if new cell is near another allied city
 				if (cell.getAlliedNeighbors().size() > 0)
 				{
+					// cancel multi piece move in case city gets eliminated
+					if (this.multiPieceMove)
+						citySelected.cancelMultiMovePiece();
+					
 					human.combineAdjacentCities();
 					// just in case the selected city was combined and lost...
 					// use the city the taken cell is associated with cause/
 					// it will either be the citySelected or the city it was combined with
+					
 					citySelected = cell.getCity();
+					if (this.multiPieceMove)
+					{
+						citySelected.setMultiMovePiece(this.movingPiece);
+					}
 
 				}
 
 				citySelected.calculateEdges(colOffset, rowOffset);
 			} // can human take enemy occupier
 		}
-		
-		movingPiece = Occupiers.NONE;
-		movingPieceFrom = null;
-		buyingAPiece = false;
+
 		repaint();
-
-
-		this.setCursor( null );
+		
+		if (!this.multiPieceMove)
+		{
+			movingPiece = Occupiers.NONE;
+			movingPieceFrom = null;
+			this.setCursor( null );
+		}
+		buyingAPiece = false;
 
 	} // end mouseReleased
 	
@@ -501,6 +575,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 		movingPieceFrom = null;
 		buyingAPiece = false;
 		movingPiece = Occupiers.NONE;
+		multiPieceMove = false;
 
 		
         rows = in.readInt();

@@ -19,6 +19,9 @@ public class City extends ArrayList<Cell> implements Serializable
 	private int myID = -1;
 	private transient Player myPlayer = null;
 	private transient Area myArea = new Area();
+	private transient ArrayList<Cell> multiMoveCells = null;
+	private transient Occupiers multiMovePiece = Occupiers.NONE;
+
 	
 	public City()
 	{
@@ -219,6 +222,64 @@ public class City extends ArrayList<Cell> implements Serializable
 		return moveablePieces;
 	}
 	
+	public void cancelMultiMovePiece()
+	{
+		for (Cell cell : this.multiMoveCells)
+		{
+			cell.setOccupiers(this.multiMovePiece);
+		}
+		this.multiMoveCells = null;
+		this.multiMovePiece = Occupiers.NONE;
+		
+	}
+	
+	public boolean setMultiMovePiece(Occupiers piece)
+	{
+		boolean piecesAvailable = true;
+		int count = 0;
+		if (multiMoveCells != null)
+			cancelMultiMovePiece();
+		multiMoveCells = new ArrayList<Cell>();
+		multiMovePiece = piece;
+		for (Cell cell : /* myLand */this)
+		{
+			Occupiers cellPiece = cell.getOccupiers();
+			if (cellPiece.ordinal() == piece.ordinal())
+			{
+				cell.setOccupiers(Occupiers.NONE);
+				multiMoveCells.add(cell);
+				count++;
+			}
+		}		
+		if (count <2)
+		{
+			piecesAvailable = false;
+			cancelMultiMovePiece();
+		}
+		
+		return piecesAvailable;
+	}
+	
+	// returns true if more pieces available after decrement
+	public boolean decrementMultiMovePieces()
+	{
+		boolean status = false;
+		if (this.multiMoveCells != null)
+		{
+			if (this.multiMoveCells.size() != 0)
+			{
+				this.multiMoveCells.remove(0);
+			}
+
+			if (this.multiMoveCells.size() == 0)
+				this.multiMoveCells = null;
+			else
+				status = true;
+		}
+		
+		return status;
+	}
+	
 		
 	public boolean equals(Object obj)
 	{
@@ -256,6 +317,8 @@ public class City extends ArrayList<Cell> implements Serializable
 			this.add(cell);
 			cell.setCity(this);
 		}
+		this.multiMoveCells = null;
+		this.multiMovePiece = Occupiers.NONE;
 		
 	}
 	
