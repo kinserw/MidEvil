@@ -20,20 +20,18 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 	public static int density = 50;
 	public static int numPlayers = 6;
 	public static Cell currentCell = null;
-	public static int endTurnCol = 47;
-	public static int endTurnRow = 5;
-	public static int endTurnWidth = 95;
-	public static int endTurnHeight = 15;
-	public static Rectangle endTurnRectangle = new Rectangle(endTurnRow, endTurnCol, endTurnWidth, endTurnHeight);
-	
+
 	public static int rowOffset = 20;
 	public static int colOffset = 20;
+	
+	public static JScrollPane scrollWorld = null;
 	
 	public static int difficulty = 8;
 	
 	private Cell[][] myMap = null;
 	
 	public transient boolean myKeepRunning = false;
+	private ButtonPanel myBtnPanel = null;
 	private int whosTurnItIs = 0;
 	private transient HumanPlayer human = null;
 	private int humanIndex = 0;
@@ -115,26 +113,10 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 				} 
 			}
 			
-			// draw end turn button if player is human
-			if (myPlayers.get(whosTurnItIs) == human)
-			{
-				g.setColor(human.getColor());
-				g.fill3DRect(endTurnRow, endTurnCol, endTurnWidth, endTurnHeight, true);
-				g.setColor(Color.BLACK);
-				g.drawString("End Turn ", 7, colOffset*3);
-			}
-			else
-			{
-				g.setColor(Color.BLUE);
-				g.fillRect(endTurnRow, endTurnCol, endTurnWidth, endTurnHeight);
-			}
 			
 			g.setColor(Color.BLACK);
-			/*
-			 * if (currentCell != null) g.drawString("Cell @ " + currentCell.getRow() + ", "
-			 * + currentCell.getCol() + " belongs to city #" + (currentCell.getCity() ==
-			 * null ? "none" : currentCell.getCity().getID()), 5, colOffset*4);
-			 */
+
+
 			
 			// clear the line of buyable pieces
 			int number = 60/rowOffset;
@@ -142,20 +124,10 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 				myMap[number+i][0].setOccupiers(Occupiers.NONE);
 			
 			// display what the human player can buy for the city selected
-			if ((myPlayers.get(whosTurnItIs) == human) && (citySelected != null))
+			if (myPlayers.get(whosTurnItIs) == human)
 			{
-
-				g.setColor(Color.BLACK);
-				g.drawString("Buy: ", 5, colOffset);
-				g.drawString("Gold: +" + citySelected.currentGoldValue() + ", -" + citySelected.goldConsumptionEachTurn(), 
-			               5, colOffset*2);
-				
-				ArrayList<Occupiers> buyable = human.whatICanBuy(citySelected);
-				for (Occupiers piece : buyable)
-				{
-					//myMap[number][1].setBackground(human.getColor());
-					myMap[number++][0].setOccupiers(piece);
-				}
+				myBtnPanel.setPlayerColor(human.getColor());
+				myBtnPanel.setCitySelected(citySelected, human);
 
 			}
 			
@@ -182,6 +154,12 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 			blinking = 1;
 		
 	} // end paintComponent
+
+	
+	public void setButtonPanel(ButtonPanel btnPanel)
+	{
+		myBtnPanel = btnPanel;
+	}
 	
 	private Cell findCellAt(int relativeX, int relativeY)
 	{
@@ -207,15 +185,18 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 	@Override
 	// allow the window to be resized by the user, and adjust the world size 
 	public void componentResized(ComponentEvent e) {
+
 		// not sure I need to do anything;
-	} // end componentResized
+	} // end componentResized 
 	
 	// override all the abstract methods even if nothing is done
 	// note: "@override" is a compiler instruction to force validation against base class methods
 	@Override
 	public void componentMoved(ComponentEvent e) {}
 	@Override
-	public void componentShown(ComponentEvent e) {}
+	public void componentShown(ComponentEvent e) {
+
+	}
 	@Override
 	public void componentHidden(ComponentEvent e) {} 
 	@Override
@@ -236,6 +217,18 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 		}
 	}
 
+	public void buyingArmyUnit(Occupiers piece)
+	{
+		buyingAPiece = true;
+		movingPiece = piece;
+		movingPieceFrom = null;
+		Cursor customCursor = 
+Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal()], new Point(0, 0), "customCursor");
+		Toolkit.getDefaultToolkit().getBestCursorSize(64, 64);
+		this.setCursor( customCursor );		
+	}
+	
+	
 	@Override
 	public void mousePressed(MouseEvent e) 
 	{ 
@@ -280,6 +273,7 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 			{
 				citySelected.cancelMultiMovePiece();
 				multiPieceMove = false;
+				movingPieceFrom = null;
 			}
 			
 			// if cell is the human's then enable moving the pieces
@@ -303,18 +297,17 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 				}
 			} // end of moving human pieces on the board
 			// now check if human is buying a piece
-			else if ((cell.getGeology() == Geology.WATER)
-				&& (cell.getOccupiers() != Occupiers.NONE))
-			{
-				buyingAPiece = true;
-				movingPiece = cell.getOccupiers();
-				movingPieceFrom = null;
-				Cursor customCursor = 
-Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupiers().ordinal()], new Point(0, 0), "customCursor");
-				Toolkit.getDefaultToolkit().getBestCursorSize(64, 64);
-				this.setCursor( customCursor );
-	
-			}
+			/*
+			 * else if ((cell.getGeology() == Geology.WATER) && (cell.getOccupiers() !=
+			 * Occupiers.NONE)) { buyingAPiece = true; movingPiece = cell.getOccupiers();
+			 * movingPieceFrom = null; Cursor customCursor =
+			 * Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.
+			 * getOccupiers().ordinal()], new Point(0, 0), "customCursor");
+			 * Toolkit.getDefaultToolkit().getBestCursorSize(64, 64); this.setCursor(
+			 * customCursor );
+			 * 
+			 * }
+			 */
 
 			repaint();
 		} // if btn one and cell not null
@@ -346,17 +339,24 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 		}
 	}
 
+	public void endTurn()
+	{
+		if (human != null)
+		{
+			this.citySelected = null;
+			this.buyingAPiece = false;
+			this.movingPiece = Occupiers.NONE;
+			this.movingPieceFrom = null;
+			this.multiPieceMove = false;
+			this.setCursor( null );
+
+			human.turnIsOver();
+		}
+	}
+	
 	@Override
 	public void mouseReleased(MouseEvent e) 
 	{ 
-		if (endTurnRectangle.contains(e.getX(),e.getY()))
-		{
-			human.turnIsOver();
-			return;
-		}
-		
-
-
 		// this logic is for placing the selected army piece in the same
 		// city as selected (either moving an existing piece or buying one)
 		// TODO consider moving a lot if not all this logic to the City class
@@ -376,7 +376,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 				// if human is buying a piece, go ahead and move it
 				if (buyingAPiece)
 				{
-					cell.getCity().buyAnArmyPieceForCity(movingPiece, cell);
+					citySelected.buyAnArmyPieceForCity(movingPiece, cell);
 				}
 				// else if human is moving it within the same city,...
 				else if (movingPieceFrom != null)
@@ -384,7 +384,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 					if (this.multiPieceMove)
 					{
 						cell.setOccupiers(movingPiece);
-						if (!cell.getCity().decrementMultiMovePieces())
+						if (!citySelected.decrementMultiMovePieces())
 						{
 							movingPieceFrom = null;
 							multiPieceMove = false;
@@ -436,14 +436,14 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
 				{
 					// buyAnArmyPieceForCity expects the cell to be empty
 					cell.setOccupiers(Occupiers.NONE);
-					cell.getCity().buyAnArmyPieceForCity(movingPiece, cell);
+					citySelected.buyAnArmyPieceForCity(movingPiece, cell);
 				}
 				else // buyAnArmyPieceForCity handles this so do it if not buying
 				{
 					cell.setOccupiers(movingPiece);
 					if (this.multiPieceMove)
 					{
-						if (!cell.getCity().decrementMultiMovePieces())
+						if (!citySelected.decrementMultiMovePieces())
 						{
 							movingPieceFrom = null;
 							multiPieceMove = false;
@@ -535,6 +535,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
         out.writeInt(colOffset);
         out.writeInt(myPlayers.size());
         out.writeInt(humanIndex);
+        out.writeInt(human.currentTurnCount());
         
         // can't save the whole world because it is 
         // runnable and it is too complicated to
@@ -587,6 +588,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
         int playerCount = in.readInt();
         humanIndex = in.readInt();
 		whosTurnItIs = humanIndex;
+		int turn = in.readInt(); // don't have a human yet so store here temporarily
 
 		myMap = new Cell[rows][cols];
     	for (int r = 0; r < rows; r++)	
@@ -606,6 +608,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.getOccupi
         	{
         		human = new HumanPlayer(false,false);
         		player = human;
+        		human.currentTurnCount(turn);
         	}
         	else
         		player = new ComputerPlayer(difficulty);
@@ -904,6 +907,11 @@ once all cities are made,
 			{
 				JOptionPane.showMessageDialog(null, "player " + myPlayers.get(0).getColorName() + " wins");
 				myKeepRunning = false;
+				this.multiPieceMove = false;
+				this.movingPiece = Occupiers.NONE;
+				this.movingPieceFrom = null;
+				this.citySelected = null;
+				
 			}
 			return;
 

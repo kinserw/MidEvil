@@ -9,6 +9,7 @@ public class HumanPlayer extends Player
 	private static final long serialVersionUID = 6711485896117367368L;
 	private boolean myTurnIsOver = false;
 	private boolean myFirstTimeThru = true;
+	private int myNumberOfTurns = 0;
 	
 	public HumanPlayer()
 	{
@@ -17,6 +18,7 @@ public class HumanPlayer extends Player
 	{
 		this.myTurnIsOver = turnIsOver;
 		this.myFirstTimeThru = firstTimeThru;
+		myNumberOfTurns =0;
 	}
 	
 	public void turnIsOver()
@@ -24,6 +26,15 @@ public class HumanPlayer extends Player
 		myTurnIsOver = true;
 	}
 	
+	public int currentTurnCount()
+	{
+		return myNumberOfTurns;
+	}
+	
+	public void currentTurnCount(int count)
+	{
+		this.myNumberOfTurns = count;
+	}
 	public boolean takeTurn()
 	{
 		// takeTurn gets called over and over until I return true to the caller
@@ -39,6 +50,7 @@ public class HumanPlayer extends Player
 			combineAdjacentCities();
 			resetAttackingPieces();
 			int count = 0;
+			myNumberOfTurns++;
 			
 			// loop through all cities, remove empty ones and process gold 
 			boolean keepGoing = myCities.size() > 0;

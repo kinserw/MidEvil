@@ -19,6 +19,7 @@ public class MidEvil extends JFrame
 {
 	public static World ourWorld;
 	public static Thread ourThread;
+	public static MidEvil ourGame;
 	
 	public static void main(String[] args)
 	{
@@ -38,8 +39,8 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
 			World.cols = 35;
 			World.density = 85;
 		}
-		@SuppressWarnings("unused")
-		MidEvil game = new MidEvil();
+		//@SuppressWarnings("unused")
+		MidEvil.ourGame = new MidEvil();
 	
 	}
 	
@@ -57,20 +58,46 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
 		ourWorld = new World();
 		ourThread = new Thread (ourWorld);
 		
-		// the default content pane already has a border layout manager by default.
-		// use that to add the intro panel (with buttons) and world (where the cells live)
-		Container pane = getContentPane();
-		pane.add(ourWorld, BorderLayout.CENTER);
+
+		
+		setLayout(new BorderLayout());
+		setPreferredSize(new Dimension(400, 300));
+		ourWorld.setPreferredSize(new Dimension((World.rows+1)*World.rowOffset, (World.cols+3)*World.colOffset));
+		World.scrollWorld =  new JScrollPane(ourWorld, 
+					JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, 
+					JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+
+		JPanel buttonPanel = createButtonPanel();
+		//Create a split pane with the two scroll panes in it.
+		buttonPanel.setMinimumSize(new Dimension(20,20));
+		JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
+		                           buttonPanel, World.scrollWorld);
+		//Provide minimum sizes for the two components in the split pane
+		splitPane.setOneTouchExpandable(false);
+		splitPane.setAutoscrolls(false);
+		splitPane.setDividerSize(0);
+		splitPane.setResizeWeight(.05);
+		
+		add(BorderLayout.CENTER, splitPane);
+		
 		createMenuBar();
+		
 		pack();
-		setSize((World.rows+1)*World.rowOffset,
-				(World.cols+3)*World.colOffset);
+		setSize(800,600);
+		World.scrollWorld.getHorizontalScrollBar().setValue(
+				(World.rowOffset*World.rows -
+				World.scrollWorld.getHorizontalScrollBar().getVisibleAmount())/2);
+		World.scrollWorld.getVerticalScrollBar().setValue(
+			(World.colOffset*World.cols -
+				World.scrollWorld.getVerticalScrollBar().getVisibleAmount())/2);
+
 		setVisible(true);
 		setResizable(true);
 
 		ourThread.start();
 	}
 	
+
 	private boolean loadGame()
 	{
 		JFileChooser fileChooser = new JFileChooser();
@@ -98,6 +125,12 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
 			        	  World.theWorld.loadGame(in);
 			          in.close(); 
 			          fileIn.close(); 
+			          
+				  		setSize(800,600);
+		    			World.scrollWorld.getHorizontalScrollBar().setValue(
+	    						World.scrollWorld.getHorizontalScrollBar().getVisibleAmount()/2);
+	    			World.scrollWorld.getVerticalScrollBar().setValue(
+	    						World.scrollWorld.getVerticalScrollBar().getVisibleAmount()/2);	
 			          
 				} // can read from file
 				else
@@ -184,6 +217,7 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
         fileMenu.addSeparator();
         
         JMenu optionMenu = new JMenu("Options");
+        
         JMenuItem newMenuItem = new JMenuItem("New Game");
         JMenuItem endMenuItem = new JMenuItem("End Game");
         newMenuItem.setMnemonic(KeyEvent.VK_N);
@@ -195,7 +229,12 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
 						saveMenuItem.setEnabled(true);
 						endMenuItem.setEnabled(true);
 						World.theWorld.newGame();
-			        			
+		    			World.scrollWorld.getHorizontalScrollBar().setValue(
+		    					(World.rowOffset*World.rows -
+	    						World.scrollWorld.getHorizontalScrollBar().getVisibleAmount())/2);
+		    			World.scrollWorld.getVerticalScrollBar().setValue(
+	    					(World.colOffset*World.cols -
+	    						World.scrollWorld.getVerticalScrollBar().getVisibleAmount())/2);			        			
         			});
 
         fileMenu.add(newMenuItem);
@@ -276,6 +315,13 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
     			World.cols = 35;
     			World.density = 50;
     			World.numPlayers = 3;
+    			this.setSize(600,400);
+    			World.scrollWorld.getHorizontalScrollBar().setValue(
+    					(World.rowOffset*World.rows -
+						World.scrollWorld.getHorizontalScrollBar().getVisibleAmount())/2);
+    			World.scrollWorld.getVerticalScrollBar().setValue(
+					(World.colOffset*World.cols -
+						World.scrollWorld.getVerticalScrollBar().getVisibleAmount())/2)	;        			
     		}
         });
 
@@ -287,7 +333,16 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
     			World.rows = 65;
     			World.cols = 35;
     			World.numPlayers = 5;
-    			World.density = 70;               }
+    			World.density = 70;
+    			this.setSize(900,600);
+
+    			World.scrollWorld.getHorizontalScrollBar().setValue(
+    					(World.rowOffset*World.rows -
+						World.scrollWorld.getHorizontalScrollBar().getVisibleAmount())/2);
+    			World.scrollWorld.getVerticalScrollBar().setValue(
+					(World.colOffset*World.cols -
+						World.scrollWorld.getVerticalScrollBar().getVisibleAmount())/2)	;        			
+    			}
         });
 
         JRadioButtonMenuItem largeRMenuItem = new JRadioButtonMenuItem("Large Map");
@@ -299,7 +354,15 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
     			World.rows = 65;
     			World.cols = 35;
     			World.numPlayers = 7;
-    			World.density = 85;             }
+    			World.density = 85;
+    			this.setSize(1100,800);
+    			World.scrollWorld.getHorizontalScrollBar().setValue(
+    					(World.rowOffset*World.rows -
+						World.scrollWorld.getHorizontalScrollBar().getVisibleAmount())/2);
+    			World.scrollWorld.getVerticalScrollBar().setValue(
+					(World.colOffset*World.cols -
+						World.scrollWorld.getVerticalScrollBar().getVisibleAmount())/2)	;	        			
+    			}
         });
 
         sizeGroup.add(smallRMenuItem);
@@ -346,8 +409,30 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
 
  
         menuBar.add(optionMenu);
+        
+        JMenuItem helpMenu = new JMenuItem("How to Play");
+        helpMenu.addActionListener( (event) -> JOptionPane.showMessageDialog(World.theWorld, 
+        		"<html><h1>MidEvil</h1><p style='width:400'>This is a strategy board game in which players compete to gain territory. Whoever eliminates their competition, Wins!!<br>"
+        		+ "<br>Each player is assigned a color and the same number of cities. Cities are collections of adjacent squares of the same color. If two or more cities of the same color touch, they are combined into a single city. So, it may appear that some players have fewer cities at the start but this is because two or more of their cities were touching and combined before play started." +
+        				"<br>Each turn, every city gets gold based on the number of squares contained within the city. Click on one of your cities to see the current amount of gold, show in the upper left corner." + 
+        		"<br><br>A player can buy army units to place on their city or attack neighboring squares to build on the size of their city. The more gold you have, the more powerful army piece you can buy." + 
+        				"<br><br>To buy a unit, click on a city, then click on the army unit displayed in the upper left corner, dragging it down to the square you want to place it on or the one you want to attack (note: you can only attack squares touching your city)."
+        				+ "<br>To move or attack with an existing unit, click on and drag that unit where you want it to be. You can only move units that are flashing (that is, once a unit is used to attack, it can't be used or moved again until the next turn)."
+        		));
+        menuBar.add(helpMenu);
+
         setJMenuBar(menuBar);
     }
+	
+	private JPanel createButtonPanel()
+	{
+		ButtonPanel panel = new ButtonPanel();
+		panel.createContent();
+		
+		World.theWorld.setButtonPanel(panel);
+
+		return panel;
+	}
 	
 	
 }

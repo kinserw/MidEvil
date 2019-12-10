@@ -20,6 +20,7 @@ public class City extends ArrayList<Cell> implements Serializable
 	private transient Player myPlayer = null;
 	private transient Area myArea = new Area();
 	private transient ArrayList<Cell> multiMoveCells = null;
+	private transient ArrayList<Cell> emptyMultiMoveCells = null;
 	private transient Occupiers multiMovePiece = Occupiers.NONE;
 
 	
@@ -224,12 +225,24 @@ public class City extends ArrayList<Cell> implements Serializable
 	
 	public void cancelMultiMovePiece()
 	{
+		if (this.multiMoveCells == null)
+			return;
 		for (Cell cell : this.multiMoveCells)
 		{
+			// is there a conflict (one of the cells we took the multi select
+			// piece from has something on it now so we can't return the original piece)
+			if (cell.getOccupiers() != Occupiers.NONE)
+			{
+				// if so, then use one of the empty ones 
+				// note: the empty list has to have something or we wouldn't be in 
+				// this situation.
+				cell = this.emptyMultiMoveCells.get(0);
+			}
 			cell.setOccupiers(this.multiMovePiece);
 		}
 		this.multiMoveCells = null;
 		this.multiMovePiece = Occupiers.NONE;
+		this.emptyMultiMoveCells = null;
 		
 	}
 	
@@ -240,15 +253,19 @@ public class City extends ArrayList<Cell> implements Serializable
 		if (multiMoveCells != null)
 			cancelMultiMovePiece();
 		multiMoveCells = new ArrayList<Cell>();
+		this.emptyMultiMoveCells = new ArrayList<Cell>();
 		multiMovePiece = piece;
 		for (Cell cell : /* myLand */this)
 		{
 			Occupiers cellPiece = cell.getOccupiers();
 			if (cellPiece.ordinal() == piece.ordinal())
 			{
-				cell.setOccupiers(Occupiers.NONE);
-				multiMoveCells.add(cell);
-				count++;
+				if (cell.ableToAttack()) 
+				{
+					cell.setOccupiers(Occupiers.NONE);
+					multiMoveCells.add(cell);
+					count++;
+				}
 			}
 		}		
 		if (count <2)
@@ -268,7 +285,9 @@ public class City extends ArrayList<Cell> implements Serializable
 		{
 			if (this.multiMoveCells.size() != 0)
 			{
-				this.multiMoveCells.remove(0);
+				// hang on to the cells that used to have multi select pieces on it
+				// as we may need these if there is a conflict during cancellation
+				this.emptyMultiMoveCells.add(this.multiMoveCells.remove(0));
 			}
 
 			if (this.multiMoveCells.size() == 0)
