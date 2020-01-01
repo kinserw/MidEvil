@@ -9,3 +9,7 @@
 /World.class
 /Move.class
 /ButtonPanel.class
+/WorldPanel.class
+/CustomCursor.class
+/UIRefreshInterface.class
+/NotifyGameWon.class

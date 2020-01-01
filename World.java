@@ -1,166 +1,63 @@
+import java.awt.Rectangle;
 import java.awt.geom.*;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.awt.*;
+import java.io.Serializable;
 import java.util.*;
-import javax.swing.*;
 
-import java.awt.event.*;
-
-public class World extends JPanel implements ComponentListener, MouseListener, MouseMotionListener, Runnable 
+public class World  implements Serializable, Runnable
 {
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 2112960996668811817L;
 	public static World theWorld = null;
-	public static int rows = 30;
-	public static int cols = 30;
-	public static int density = 50;
-	public static int numPlayers = 6;
+	public static int rows = 65;
+	public static int cols = 35;
+	public static int density = 85;
+	public static int numPlayers = 7;
 	public static Cell currentCell = null;
 
 	public static int rowOffset = 20;
 	public static int colOffset = 20;
 	
-	public static JScrollPane scrollWorld = null;
-	
 	public static int difficulty = 8;
 	
-	private Cell[][] myMap = null;
+	public Cell[][] myMap = null;
 	
 	public transient boolean myKeepRunning = false;
-	private ButtonPanel myBtnPanel = null;
 	private int whosTurnItIs = 0;
-	private transient HumanPlayer human = null;
+	public  transient HumanPlayer human = null;
 	private int humanIndex = 0;
-	private transient City citySelected = null;
+	public transient City citySelected = null;
 	private transient Cell movingPieceFrom = null;
-	private int blinking = 1;
 	private transient Occupiers movingPiece = Occupiers.NONE;
 	private boolean multiPieceMove = false;
 	private transient boolean buyingAPiece = false;
 	private transient ArrayList<Cell> myPlayableMap;
 	private ArrayList<Player> myPlayers;
 	
-	private static final Color[] playerColors =
-	{Color.LIGHT_GRAY,
-	 Color.CYAN,
-	 Color.PINK,
-	 Color.RED,
-	 Color.ORANGE,
-	 Color.MAGENTA,
-	 Color.YELLOW,
-	 Color.DARK_GRAY};	
+	private transient CustomCursor myCursorCreator = null;
+	private transient UIRefreshInterface myUIRefresh = null;
+	private transient NotifyGameWon myNotifyWhoWon = null;
 	
-	private static final String[] playerColorNames =
-	{"LIGHT_GRAY",
-	 "CYAN",
-	 "PINK",
-	 "RED",
-	 "ORANGE",
-	 "MAGENTA",
-	 "YELLOW",
-	 "DARK_GRAY"
-	};
+
 
 	// World default constructor
 	public World() {
-
-		addComponentListener(this); // resizing of frame => resize the world
-		addMouseListener(this); // for detecting mouse pressed
-		addMouseMotionListener(this); // for detecting mouse movement
 		World.theWorld = this;
 		
 	} // end World constructor
  
-
-	
-	@Override
-	// override base class methods so that we can draw all the cells in our world
-	public void paintComponent(Graphics g) {
-		
-		super.paintComponent(g);
-		
-		g.setColor(Color.red);
-		try {
-
-			g.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 18));
-			for (int i = 0; i < myMap.length ; i++)
-			{
-				for (int j = 0; j < myMap[0].length; j++)
-				{
-					Cell cell = myMap[i][j];
-
-					g.drawImage(cell.getImage(),i*rowOffset, j*colOffset,cell.getBackground(), null);
-					
-					// draw occupier on top of cell image
-					if (cell.getOccupiers() != Occupiers.NONE)
-					{
-						// blink the human pieces that can be moved
-						if ((cell.getCity() != null) && 
-						    (cell.getCity().getPlayer() == human) &&
-//							(cell.getOccupiers() != Occupiers.VILLAGE) &&
-							(cell.getOccupiers() != Occupiers.CASTLE) &&
-							(cell.ableToAttack()) &&
-							(blinking < 0))
-						{
-							g.drawImage(cell.getGeology().getImage(), i*rowOffset, j*colOffset,cell.getBackground(), null);
-						}
-
-					}
-				} 
-			}
-			
-			
-			g.setColor(Color.BLACK);
-
-
-			
-			// clear the line of buyable pieces
-			int number = 60/rowOffset;
-			for (int i = 0; i < Occupiers.placeablePieces.length; i++)
-				myMap[number+i][0].setOccupiers(Occupiers.NONE);
-			
-			// display what the human player can buy for the city selected
-			if (myPlayers.get(whosTurnItIs) == human)
-			{
-				myBtnPanel.setPlayerColor(human.getColor());
-				myBtnPanel.setCitySelected(citySelected, human);
-
-			}
-			
-			if (citySelected != null)
-			{
-				// draw outline of selected City
-				g.setColor(Color.BLACK);
-				((Graphics2D)g).draw(citySelected.getArea());
-			}
-
-		} // end try block
-		catch (Exception exception) 
-		{
-			// do nothing; just capture errors for now
-			// TODO: figure out why it's throwing exceptions (ConcurrentModificationException?)
-			// 
-			// I saw several places in the class documentation that Swing is NOT thread safe but
-			// running my world class in a thread was based on examples I found on 
-			// Oracles and StackOverflow websites. Catching and ignoring these errors 
-			// doesn't seem to cause a problem in quick runs of the program.			
-		} // end catch all exceptions
-		
-		if (--blinking < -1)
-			blinking = 1;
-		
-	} // end paintComponent
-
-	
-	public void setButtonPanel(ButtonPanel btnPanel)
+	public Player currentPlayer()
 	{
-		myBtnPanel = btnPanel;
+		if (myPlayers != null)
+			return myPlayers.get(whosTurnItIs);
+		return null;
 	}
-	
+
+
 	private Cell findCellAt(int relativeX, int relativeY)
 	{
 		if (!myKeepRunning || myMap == null)
@@ -181,31 +78,26 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 
 		return cell;
 	}
-
-	@Override
-	// allow the window to be resized by the user, and adjust the world size 
-	public void componentResized(ComponentEvent e) {
-
-		// not sure I need to do anything;
-	} // end componentResized 
 	
-	// override all the abstract methods even if nothing is done
-	// note: "@override" is a compiler instruction to force validation against base class methods
-	@Override
-	public void componentMoved(ComponentEvent e) {}
-	@Override
-	public void componentShown(ComponentEvent e) {
-
+	public void setCursorCreator(CustomCursor ccc)
+	{
+		this.myCursorCreator = ccc;
 	}
-	@Override
-	public void componentHidden(ComponentEvent e) {} 
-	@Override
-	public void mouseClicked(MouseEvent e) 
+	
+	public void setUIRefresh(UIRefreshInterface uir)
+	{
+		this.myUIRefresh = uir;
+	}
+	
+	public void setNotifyWhoWon(NotifyGameWon ngw)
+	{
+		this.myNotifyWhoWon = ngw;
+	}
+
+	public void mouseClicked(int x, int y) 
 	{
 	
-		if (e.getButton() == 1) 
-		{
-			Cell cell = findCellAt(e.getX(),e.getY());
+			Cell cell = findCellAt(x,y);
 			if ((cell != null) &&  
 			    ((cell.getCity() != null ) 
 			    && (cell.getCity().getPlayer() == human)
@@ -213,8 +105,6 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 			{
 				citySelected = cell.getCity();
 			}
-			
-		}
 	}
 
 	public void buyingArmyUnit(Occupiers piece)
@@ -222,19 +112,15 @@ public class World extends JPanel implements ComponentListener, MouseListener, M
 		buyingAPiece = true;
 		movingPiece = piece;
 		movingPieceFrom = null;
-		Cursor customCursor = 
-Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal()], new Point(0, 0), "customCursor");
-		Toolkit.getDefaultToolkit().getBestCursorSize(64, 64);
-		this.setCursor( customCursor );		
+		myCursorCreator.createCustomCursor(piece);
 	}
 	
 	
-	@Override
-	public void mousePressed(MouseEvent e) 
+	public void mousePressed(boolean btn1, int x, int y) 
 	{ 
-		Cell cell = findCellAt(e.getX(),e.getY());
+		Cell cell = findCellAt(x,y);
 		// only process if not btn 1 and not already in a multi piece move action
-		if ((e.getButton() != 1) && !multiPieceMove && (cell != null))
+		if (!btn1 && !multiPieceMove && (cell != null))
 		{
 
 			// if cell is the human's then enable moving the pieces
@@ -254,10 +140,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
 							movingPieceFrom = cell;
 							movingPiece = piece;
 							this.multiPieceMove = true;
-							Cursor customCursor = 
-		Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal()], new Point(0, 0), "customCursor");
-							Toolkit.getDefaultToolkit().getBestCursorSize(64, 64);
-							this.setCursor( customCursor );
+							myCursorCreator.createCustomCursor(piece);
 						}
 					}
 
@@ -266,7 +149,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
 		} // end multiple piece move
 			
 		// see if the player is moving an existing piece or buying one
-		if ((e.getButton() == 1) && (cell != null)) 
+		if (btn1 && (cell != null)) 
 		{
 			// if btn 1 pressed then cancel multiPieceMove if active
 			if (this.multiPieceMove)
@@ -288,57 +171,18 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
 					{
 						movingPiece = piece;
 						movingPieceFrom = cell;
-						Cursor customCursor = 
-	Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal()], new Point(0, 0), "customCursor");
-						Toolkit.getDefaultToolkit().getBestCursorSize(64, 64);
-						this.setCursor( customCursor );
+						myCursorCreator.createCustomCursor(piece);
+
 					}
 
 				}
 			} // end of moving human pieces on the board
 			// now check if human is buying a piece
-			/*
-			 * else if ((cell.getGeology() == Geology.WATER) && (cell.getOccupiers() !=
-			 * Occupiers.NONE)) { buyingAPiece = true; movingPiece = cell.getOccupiers();
-			 * movingPieceFrom = null; Cursor customCursor =
-			 * Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[cell.
-			 * getOccupiers().ordinal()], new Point(0, 0), "customCursor");
-			 * Toolkit.getDefaultToolkit().getBestCursorSize(64, 64); this.setCursor(
-			 * customCursor );
-			 * 
-			 * }
-			 */
 
-			repaint();
 		} // if btn one and cell not null
 
 	} // mouse pressed 
 	
-	@Override
-	// mouseEntered is used to detect when the cursor is moved to the canvas area
-	public void mouseEntered(MouseEvent e) {
-// TODO ??
-	} // end mouseEntered
-	@Override
-	public void mouseExited(MouseEvent e) 
-	{
-
-	}
-	
-	@Override
-	public void mouseMoved(MouseEvent e) {
-		if (myMap != null)
-		{
-			Cell cell = findCellAt(e.getX(),e.getY());
-			if ((cell != null) && (cell.getCity() != null))
-			{
-				currentCell = cell;
-			}
-			else
-				currentCell = null;
-		}
-	}
-
 	public void endTurn()
 	{
 		if (human != null)
@@ -348,19 +192,20 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
 			this.movingPiece = Occupiers.NONE;
 			this.movingPieceFrom = null;
 			this.multiPieceMove = false;
-			this.setCursor( null );
-
+			myCursorCreator.createCustomCursor(null);
+			
 			human.turnIsOver();
 		}
+		validateWorld();
 	}
+
 	
-	@Override
-	public void mouseReleased(MouseEvent e) 
+	public void mouseReleased(int x, int y) 
 	{ 
 		// this logic is for placing the selected army piece in the same
 		// city as selected (either moving an existing piece or buying one)
 		// TODO consider moving a lot if not all this logic to the City class
-		Cell cell = findCellAt(e.getX(),e.getY());
+		Cell cell = findCellAt(x,y);
 		if ((cell != null) && (cell.getCity() != null) &&
 		    (cell.getCity().equals(citySelected)))
 		{
@@ -480,25 +325,16 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
 			} // can human take enemy occupier
 		}
 
-		repaint();
-		
 		if (!this.multiPieceMove)
 		{
 			movingPiece = Occupiers.NONE;
 			movingPieceFrom = null;
-			this.setCursor( null );
+			myCursorCreator.createCustomCursor(null);
 		}
 		buyingAPiece = false;
 
 	} // end mouseReleased
 	
-	@Override
-	public void mouseDragged(MouseEvent e) 
-// TODO is this where I need to draw the piece being moved?
-	{ 
-	
-	} // end mouseDragged
-
 	public void newGame()
 	{
 		myMap = null;
@@ -514,14 +350,13 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
 			for (int j = 0; j< cols; j++)
 			{
 				myMap[i][j].setGeology(Geology.WATER);
-				myMap[i][j].setBackground(Color.BLUE);
+				myMap[i][j].setBackground(Cell.BLUE); // blue is bits 0-7
 				myMap[i][j].setCity(null);
 				myMap[i][j].setOccupiers(Occupiers.NONE);
 				citySelected = null;
 				currentCell = null;
 			}
 		}
-		repaint();
 	}
 	
 	public void saveGame(ObjectOutputStream out) throws IOException
@@ -551,7 +386,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
         for (int i = 0; i < myPlayers.size(); i++)
         {
         	Player player = myPlayers.get(i);
-        	out.writeObject(player.getColor());
+        	out.writeInt(player.getColor());
         	out.writeObject(player.getColorName());
         	
         	// rebuild player's cities
@@ -560,7 +395,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
         	for (int a = 0; a < count; a++)
         	{
         		City city = player.getCities().get(a);
-        		out.writeObject(city); // save non-reference items
+        		//out.writeObject(city); // save non-reference items
         		
         		city.saveCity(out); // save reference items
         	}
@@ -613,7 +448,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
         	else
         		player = new ComputerPlayer(difficulty);
         	myPlayers.add(player);
-        	Color color = (Color)in.readObject();
+        	int color = in.readInt();
         	player.setColor(color);
         	String colorName = (String)in.readObject();
         	player.setColorName(colorName);
@@ -623,7 +458,7 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
         	int count = in.readInt(); // city count
         	for (int a = 0; a < count; a++)
         	{
-        		City city = (City)in.readObject(); // load non-reference items
+        		City city = new City();
         		city.loadCity(in, myMap); // loads reference items
         		city.calculateEdges(colOffset,rowOffset);
         		
@@ -642,19 +477,13 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
     			Cell cell = myMap[r][c];
     			if (cell.getGeology() != Geology.WATER)
     				myPlayableMap.add(cell);
-    			else
-    				// in case they saved with a selected city
-    				// need to clear the army pieces that are 
-    				// available to buy
-    				cell.setOccupiers(Occupiers.NONE);
     			
     			// rebuild reference data for each cell
-    			setNeighbors(r,c);
+    			setNeighbors(cell);
     		}
 
-	}
+	} // end loadGame
   
-	@Override
 	public void run() 
 	{
 		while (true)
@@ -671,8 +500,8 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
 			
 				do 
 				{
-				repaint(); // force a repaint of canvas
 				takeTurn();
+				myUIRefresh.refreshUI();
 				
 				} while (myKeepRunning);
 			} 
@@ -706,30 +535,123 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
 					myPlayableMap.add(myMap[i][j]);
 				}
 				else 
-					myMap[i][j].setBackground(Color.BLUE);
+					myMap[i][j].setBackground(Cell.BLUE); // blue is bits 0-7
 			}
 		}
 		
+
 		// TODO: second pass will build outward any areas of 4 or more cells
 		// adjacent to each other on the coast line but nothing on the outer
 		// edge of the map (0,?) or (?,0) or (max,0) or (0,max)
 		
 		// third pass will tell each cell who its neighbors are .
 		// note that all playable cells will have 8 neighbors 
-		for (int i = 0; i < row; i++)
+		for (Cell cell : myPlayableMap)
 		{
-			for (int j = 0; j< col; j++)
-			{
-				Cell cell = myMap[i][j];
-				if (cell.getGeology() != Geology.WATER) // no need to do this for water
-				{
-					setNeighbors(i,j);
-				} // find neighbors for cells that aren't water
-			}
+			setNeighbors(cell);
 		}		
-	
+
+		// remove any "islands" not connected to the main land so that no city 
+		// can accidently be placed there thus eliminating the ability of 
+		// someone from eliminating all cities.
+		determinePlayableMapConnectivity();
+				
+		
 		// TODO this pass will also convert any land cells to be coastal cells
 		
+		
+	}
+	
+	private void determinePlayableMapConnectivity()
+	{
+			// remove any cells that are all by themselves.
+			int index = 0;
+			for (index = 0; index < myPlayableMap.size(); index++)
+			{
+				Cell cell = myPlayableMap.get(index);
+				ArrayList<Cell> cells = cell.getNeighbors();
+				if (cells.size() == 0)
+				{ // then this cell is isolated and should be removed
+					myPlayableMap.remove(index);
+					cell.setBackground(Cell.BLUE);
+					cell.setGeology(Geology.WATER);
+					index--; // redo this index now that a different cell is there
+				}
+			}
+			
+			// if the map is disjointed, then picking any cell at random and building
+			// a list of all cells connected to that cell will result in the new list
+			// being of a different size than the original map list.
+			
+			
+			// pick any cell in the map
+			// add it to a new list
+			ArrayList<Cell> newMap = new ArrayList<Cell>();
+			newMap.add(myPlayableMap.get(0));
+			int newMapIndex = 0;
+			
+			// find all its allied neighbors (that aren't already in the new list)
+			// if 1 or more, 
+				// add them to the list, 
+				// take next cell in new list 
+				// and try again
+			//NOTE: at this point, all cells think they are part of the original 
+			// map even if disjointed (and that's okay for now)
+			while (newMapIndex < newMap.size())
+			{
+				ArrayList<Cell> cells = newMap.get(newMapIndex).getNeighbors();
+
+				for(Cell cell : cells)
+				{
+					if (!newMap.contains(cell))
+						newMap.add(cell);
+				}
+				newMapIndex++;
+			}
+			
+			//once no more  neighbors can be found and all the cells in the new
+			//          list have been checked, compare #in new list to #in original city
+			// if the # is same then it is not disjointed.
+			// if # is different, set playable map to the larger of the 2 maps
+			int diff = (newMap.size() - myPlayableMap.size());
+			if (diff == 0)
+				return;
+			
+			// make myPlayableMap the larger of the two
+			if (diff > 0) // only positive if newMap was bigger
+			{ 
+				ArrayList<Cell> temp = myPlayableMap;
+				myPlayableMap = newMap;
+				newMap = temp;
+			}
+			
+			diff = Math.abs(diff);
+			
+			// now at this point, newMap is smaller than the playable map
+			// but we don't know if it contains the island or the larger
+			// continent. The value of diff is the size of the island.
+			// so, if newMap is the same size then it is the island,
+			// otherwise it is the continent
+			if (diff != newMap.size()) 
+			{
+				@SuppressWarnings("unchecked")
+				ArrayList<Cell> dup = (ArrayList<Cell>)myPlayableMap.clone();// shallow copy
+				dup.removeAll(newMap);
+				newMap = dup;
+			}
+			
+			// remove all cells in newMap from myPlayableMap
+			for (Cell cell : newMap)
+			{
+				myPlayableMap.remove(cell);
+				cell.setBackground(Cell.BLUE);
+				cell.setGeology(Geology.WATER);
+			}
+			
+	
+			// now, recursively call this method again to check for 
+			// multiple islands . this call will return once no islands found
+			determinePlayableMapConnectivity();
 		
 	}
 	private Cell createCell(int row, int col, int landDensity)
@@ -812,8 +734,8 @@ Toolkit.getDefaultToolkit().createCustomCursor(Occupiers.ourImage[piece.ordinal(
 			}
 			myPlayers.add(newPlayer);
 							
-			newPlayer.setColor(playerColors[i+1]);
-			newPlayer.setColorName(playerColorNames[i+1]);
+			newPlayer.setColor(Player.playerColors[i+1]);
+			newPlayer.setColorName(Player.playerColorNames[i+1]);
 
 			// assign territory
 			for (int j=0;j < 10; j++) // each player gets 10 cities
@@ -846,7 +768,7 @@ once all cities are made,
 		city.add(branchCell);
 		branchCell.setCity(city);
 		branchCell.setOccupiers(Occupiers.VILLAGE);
-		branchCell.setBackground(playerColors[player+1]);
+		branchCell.setBackground(Player.playerColors[player+1]);
 		availableCells.remove(branchCell);
 
 		// add 1 or 2 more cells to the city from capitol's neighbors
@@ -859,7 +781,7 @@ once all cities are made,
 				city.add(c);
 				c.setCity(city);
 				availableCells.remove(c);
-				c.setBackground(playerColors[player+1]);
+				c.setBackground(Player.playerColors[player+1]);
 			}
 			if (count <= 0)
 				break;
@@ -905,13 +827,12 @@ once all cities are made,
 		{
 			if (myKeepRunning)
 			{
-				JOptionPane.showMessageDialog(null, "player " + myPlayers.get(0).getColorName() + " wins");
 				myKeepRunning = false;
 				this.multiPieceMove = false;
 				this.movingPiece = Occupiers.NONE;
 				this.movingPieceFrom = null;
 				this.citySelected = null;
-				
+				this.myNotifyWhoWon.gameWasWonBy(myPlayers.get(0));
 			}
 			return;
 
@@ -943,16 +864,14 @@ once all cities are made,
 			}	
 		}
 		
-		repaint();
-	
-
 		// if total defense of all computer is < 25% of human's then surrender
 	}
 	
-	private void setNeighbors(int row, int col)
+	private void setNeighbors(Cell cell)
 	{
 		ArrayList<Cell> neighbors = new ArrayList<Cell>();
-		Cell cell = myMap[row][col];
+		int row = cell.getRow();
+		int col = cell.getCol();
 		
 		for (int a = 0; a < 3; a++) {
 			for (int b = 0; b < 3; b++) {
@@ -997,6 +916,25 @@ once all cities are made,
 			}
 		}
 		cell.setFarNeighbors(farNeighbors);
+	}
+	
+	public void validateWorld()
+	{
+		/*
+		 * start with cells and cities since that is where we're seeing problems...
+		 * iterate through all the players
+		 * 	iterate thru each player's cities
+		 * 		iterate thru each city's cells 
+		 * 			make sure each cell has the city registered....
+		 */
+		for (Player p : myPlayers)
+		{
+			for (City city : p.getCities())
+				for(Cell c : city)
+					if (!city.equals(c.getCity()))
+						System.out.println("out of synch");
+		}
+			
 	}
 }
  

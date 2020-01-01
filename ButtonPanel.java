@@ -1,15 +1,10 @@
-import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.ComponentOrientation;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.GridLayout;
 import java.awt.LayoutManager;
 import java.util.ArrayList;
 
-import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JPanel;
@@ -118,6 +113,9 @@ public class ButtonPanel extends JPanel {
 	{
 		//if (btn.getBackground() == endTurnBtn.getBackground())
 			World.theWorld.buyingArmyUnit(piece);
+			repaint();
+			
+
 	}
 	
 	public void setPlayerColor(Color color)
@@ -171,6 +169,8 @@ public class ButtonPanel extends JPanel {
 			count++;
 			
 		}
+		repaint();
+
 
 	}
 

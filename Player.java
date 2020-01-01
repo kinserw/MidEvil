@@ -1,17 +1,42 @@
 import java.util.*;
-import java.awt.Color;
 import java.io.Serializable;
 
 public class Player implements Serializable
 {
+	public static final String[] playerColorNames =
+	{"LIGHT_GRAY",
+	 "Lt. Blue",
+	 "PINK",
+	 "RED",
+	 "ORANGE",
+	 "MAGENTA",
+	 "YELLOW",
+	 "Lt. Green"
+	};
+	
+	public static final int rgb(int r, int g, int b)
+	{
+		return r*256*256 + g*256 + b;
+	}
+	// TODO: figure out rgb values independent of COLOR class
+	public static final int[] playerColors =
+	{   rgb(204, 204, 204),
+		rgb(0, 255, 255),
+		rgb(255, 192, 203),
+	 	rgb(255, 0, 0),
+	 	rgb(255, 165, 0),
+	 	rgb(255, 0, 255),
+	    rgb(255, 255, 0),
+	    rgb(153, 255, 51)};	
+
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 6139076431935707192L;
 	private transient ArrayList<Cell> myAttackingPieces = new ArrayList<Cell>();
 	protected transient ArrayList<City> myCities;
-	protected Color myColor;
-	protected String myColorName;
+	protected int myColor;
+	protected String myColorDisplayName;
 	
 	public Player()
 	{
@@ -48,22 +73,23 @@ public class Player implements Serializable
 		myCities.remove(city);
 	}
 	
-	public void setColor(Color clr)
+	public void setColor(int rgb)
 	{
-		myColor = clr;
-	}
-	public Color getColor()
+		myColor = rgb;
+	}	
+
+	public int getColor()
 	{
 		return myColor;
 	}
 	
 	public void setColorName(String clr)
 	{
-		myColorName = clr;
+		myColorDisplayName = clr;
 	}
 	public String getColorName()
 	{
-		return myColorName;
+		return myColorDisplayName;
 	}
 	
 	
@@ -164,7 +190,7 @@ public class Player implements Serializable
 		if (!myCities.contains(city))
 			return;
 		
-		if (!city.equals(cell.getCity()))
+		if (!city.contains(cell)) //city.equals(cell.getCity()))
 		{
 			return;
 		}
@@ -175,7 +201,7 @@ public class Player implements Serializable
 		// remember lostPiece for later processing if city continues to exist
 		Occupiers lostPiece = cell.getOccupiers();
 		cell.setOccupiers(Occupiers.NONE);
-		cell.setBackground(Color.GREEN);
+		cell.setBackground(Cell.GREEN);// green is bits 8-15
 		cell.setCity(null);
 	
 		// does city only have one cell or less?
@@ -185,7 +211,7 @@ public class Player implements Serializable
 			{
 				city.get(0).setCity(null);
 				city.get(0).setOccupiers(Occupiers.NONE);
-				city.get(0).setBackground(Color.GREEN);
+				city.get(0).setBackground(Cell.GREEN);// green is bits 8-15
 				city.remove(city.get(0));
 			}
 			myCities.remove(city);
@@ -260,12 +286,6 @@ public class Player implements Serializable
 		while (newCityIndex < newCity.size())
 		{
 			ArrayList<Cell> cells = newCity.get(newCityIndex).getCityNeighbors();
-			int cnCount = cells.size();
-			int alliedCount = newCity.get(newCityIndex).getAlliedNeighbors().size();
-			int enemyCount = newCity.get(newCityIndex).getEnemyNeighbors().size();
-			int allCount = newCity.get(newCityIndex).getNeighbors().size();
-			if (cnCount + alliedCount + enemyCount != allCount)
-				System.out.println("huh?");
 
 			for(Cell cell : cells)
 			{

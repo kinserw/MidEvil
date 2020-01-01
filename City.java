@@ -327,8 +327,23 @@ public class City extends ArrayList<Cell> implements Serializable
 		return myArea;
 	}
 	
+	@SuppressWarnings("unchecked")
 	public void loadCity(ObjectInputStream in, Cell[][] map) throws IOException
 	{
+		myGoldReserve = in.readInt();
+		Object obj = null;
+		try {
+			obj = in.readObject();
+			if (obj.getClass() != myArmy.getClass())
+				throw new ClassNotFoundException();
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		myArmy = (ArrayList<Occupiers>)obj;
+		myID = in.readInt();
+		
 		int count = in.readInt();
 		for (int i = 0; i < count; i++)
 		{
@@ -350,6 +365,9 @@ public class City extends ArrayList<Cell> implements Serializable
 	
 	public void saveCity(ObjectOutputStream out) throws IOException
 	{
+		out.writeInt(myGoldReserve);
+		out.writeObject(myArmy);
+		out.writeInt(myID);
 		int count = size();
 		out.writeInt(count);
 		for (int i = 0; i < count; i++)
@@ -359,6 +377,5 @@ public class City extends ArrayList<Cell> implements Serializable
 			out.writeInt(cell.getCol());
 		}		
 	}
-
 	
 }

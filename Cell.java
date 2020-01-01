@@ -1,9 +1,9 @@
 
-import java.awt.geom.*;
+import java.awt.geom.Area;
 import java.io.Serializable;
-import java.awt.Color;
-import java.awt.*;
-import java.util.*;
+import java.awt.Rectangle;
+import java.awt.Image;
+import java.util.ArrayList;
 
 public class Cell implements Serializable // extends Area?
 {
@@ -11,7 +11,9 @@ public class Cell implements Serializable // extends Area?
 	 * 
 	 */
 	private static final long serialVersionUID = -1597484864744817236L;
-	private Color myBG = Color.GREEN;
+	public static final int GREEN = 255*256;
+	public static final int BLUE = 255;
+	private int myBG = GREEN;
 	private Geology myGeology;
 	private transient ArrayList<Cell> myNeighbors = new ArrayList<Cell>();
 	private transient ArrayList<Cell> myFarNeighbors = new ArrayList<Cell>();
@@ -21,6 +23,9 @@ public class Cell implements Serializable // extends Area?
 	private transient Area myArea = new Area();
 	private boolean myAttackAbility = true;
 	private transient City myCity = null; // not all cells are in a city so may be null
+	private Image myScaledIcon = null;
+	private int myScaledWidth = 0;
+	private int myScaledHeight = 0;
 	
 	public Cell()
 	{
@@ -102,6 +107,7 @@ public class Cell implements Serializable // extends Area?
 	{
 		Occupiers oldDefense = myDefense;
 		myDefense = defense;
+		myScaledIcon = null;
 		return oldDefense;
 	}
 	public Occupiers getOccupiers()
@@ -188,6 +194,30 @@ public class Cell implements Serializable // extends Area?
 		return c;
 	}
 
+ 	public Image getImage(int width, int height)
+	{
+		Image i = myGeology.getImage(width,height);
+		if (myDefense.ordinal() > Occupiers.NONE.ordinal())
+		{
+			i = Occupiers.ourImage[myDefense.ordinal()];
+			if (this.myScaledIcon == null)
+	    	{
+	    		this.myScaledHeight = height;
+	    		this.myScaledWidth = width;
+	    		this.myScaledIcon = i.getScaledInstance(width, height, Image.SCALE_SMOOTH);    	
+	    	}
+	    	else if (myScaledHeight != height || myScaledWidth != width)
+	    	{
+	    		this.myScaledHeight = height;
+	    		this.myScaledWidth = width;
+	    		this.myScaledIcon = i.getScaledInstance(width, height, Image.SCALE_SMOOTH);    	
+	    	}
+			i = myScaledIcon;
+		}
+		return i;	
+	}
+
+
 	// default is to show geology but army pieces override
 	public Image getImage()
 	{
@@ -197,11 +227,13 @@ public class Cell implements Serializable // extends Area?
 		return i;	
 	}
 	
-	public void setBackground(Color bg)
+	public void setBackground(int rgb)
 	{
-		myBG = bg;
+		myBG = rgb;
+			
 	}
-	public Color getBackground()
+
+	public int getBackground()
 	{
 		return myBG;
 	}

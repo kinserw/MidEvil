@@ -15,6 +15,9 @@ public enum Geology implements Serializable
 	MTN;
 
 	private Image myIcon;
+	private Image myScaledIcon = null;
+	private int myScaledWidth = 0;
+	private int myScaledHeight = 0;
 
 	static private char[] ourChar = 
 	{'?', // unknown
@@ -54,6 +57,23 @@ public enum Geology implements Serializable
 		{
 		}
         		
+	}
+
+ 	public Image getImage(int width, int height)
+	{
+    	if (this.myScaledIcon == null)
+    	{
+    		this.myScaledHeight = height;
+    		this.myScaledWidth = width;
+    		this.myScaledIcon = getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);    	
+    	}
+    	else if (myScaledHeight != height || myScaledWidth != width)
+    	{
+    		this.myScaledHeight = height;
+    		this.myScaledWidth = width;
+    		this.myScaledIcon = getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);    	
+    	}
+		return myScaledIcon;
 	}
 
  	public Image getImage()
