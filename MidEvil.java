@@ -323,10 +323,21 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
                 World.difficulty = 8;
             }
         });
+        
+        JRadioButtonMenuItem reallyHardRMenuItem = new JRadioButtonMenuItem("Really Hard");
+        optionMenu.add(reallyHardRMenuItem);
+        reallyHardRMenuItem.setToolTipText("Set difficulty of game play to Really Hard");
+
+        reallyHardRMenuItem.addItemListener((e) -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                World.difficulty = 10;
+            }
+        });
 
         difGroup.add(easyRMenuItem);
         difGroup.add(mediumRMenuItem);
         difGroup.add(hardRMenuItem);
+        difGroup.add(reallyHardRMenuItem);
         
         optionMenu.addSeparator();
 
@@ -410,7 +421,10 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
         				break;
         			case 8 :
         		        hardRMenuItem.setSelected(true);
-        				break;
+        				break;        			
+        			case 10 :
+            		        reallyHardRMenuItem.setSelected(true);
+            				break;
         			}
 					newMenuItem.setEnabled(false);
 					optionMenu.setEnabled(false);

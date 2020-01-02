@@ -53,6 +53,7 @@ public class ComputerPlayer extends Player
 				takeDefensiveTurn();
 			break;
 			case 8 :
+			case 10 :
 				takeOffensiveTurn();
 			break;	
 			default :
@@ -112,27 +113,34 @@ public class ComputerPlayer extends Player
 				// attacking player
 				if (target.getCity() != null)
 				{
+					// when difficulty set to really hard, add more weight if this 
+					// move is against a non-computer player
+					int weight = 0;
+					if ((myDifficulty == 10) &&
+							!target.getCity().getPlayer().getClass().equals(this.getClass()))
+						weight = 2;
+					
 					// if taking target will eliminate a city...
 					if (target.getCity().size() == 2)
 					{
-						possibleMoves.add(new Move(null, target, 10, "Offensive: take 2 cell city")); // highest weight
+						possibleMoves.add(new Move(null, target, 10+weight, "Offensive: take 2 cell city")); // highest weight
 					}
 					// if I can take all the gold from an enemy city,...
 					else if (target.getOccupiers() == Occupiers.VILLAGE)
 					{
-						possibleMoves.add(new Move(null, target, 8, "Offensive: take village"));
+						possibleMoves.add(new Move(null, target, 8+weight, "Offensive: take village"));
 					}
 					// enemy cell in a direction of my nearest ally
 					else if (inDirection)
 					{
-						possibleMoves.add(new Move(null, target, 6, "Offensive: city cell in direction"));
+						possibleMoves.add(new Move(null, target, 6+weight, "Offensive: city cell in direction"));
 					}
 					// taking enemy cell is better than taking an empty cell
 					else
 					{
-						possibleMoves.add(new Move(null, target, 4, "Offensive: city cell"));
+						possibleMoves.add(new Move(null, target, 4+weight, "Offensive: city cell"));
 					}
-						
+											
 				} // end target is part of a city
 				else // target is not occupied so it has lowest defense
 				{
