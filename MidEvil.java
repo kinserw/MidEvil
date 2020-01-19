@@ -12,6 +12,8 @@ import java.io.ObjectOutputStream;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import com.kinser.midevilworld.*;
+
 //import java.awt.event.*;
 
 @SuppressWarnings("serial")
@@ -52,14 +54,13 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setLocation(00,0);
 		
-		Occupiers.getIcons();
-		Geology.getIcons();
+		Images.loadGeoImages();
+		Images.loadOccupierImages();
 
 		// World is runnable so, pass it to a thread once created
 		ourWorld = new World();
 		ourWorldPanel = new WorldPanel();
 		ourWorld.setUIRefresh(ourWorldPanel);
-		ourWorld.setCursorCreator(ourWorldPanel);
 		ourWorld.setNotifyWhoWon(ourWorldPanel);
 		ourThread = new Thread (ourWorld);
 		
@@ -248,6 +249,7 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
         newMenuItem.setToolTipText("Start a new game");
         newMenuItem.addActionListener((event) -> {
 						newMenuItem.setEnabled(false);
+        				WorldPanel.theWorldPanel.getButtonPanel().endTurnBtn.setEnabled(true);
 						optionMenu.setEnabled(false);
 						loadMenuItem.setEnabled(false);
 						saveMenuItem.setEnabled(true);
@@ -275,6 +277,7 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
         				saveMenuItem.setEnabled(false);
 						optionMenu.setEnabled(true);
         				World.theWorld.resetWorld();
+        				WorldPanel.theWorldPanel.getButtonPanel().endTurnBtn.setEnabled(false);
 		    			WorldPanel.theWorldPanel.repaint();
         			});
 

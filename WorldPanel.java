@@ -4,9 +4,12 @@ import javax.swing.*;
 
 import java.awt.event.*;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Area;
+
+import com.kinser.midevilworld.*;
 
 public class WorldPanel extends JPanel implements MouseListener, MouseWheelListener,
-					CustomCursor, UIRefreshInterface, NotifyGameWon
+					 UIRefreshInterface, NotifyGameWon
 {
 	/**
 	 * 
@@ -19,8 +22,22 @@ public class WorldPanel extends JPanel implements MouseListener, MouseWheelListe
 	private ButtonPanel myBtnPanel = null;
 	private int blinking = 1;
 	public double zoomFactor = 1;
-	private double prevZoomFactor = 1;
 	private boolean zoomer = false;
+	
+	Occupiers customCursorPiece = Occupiers.NONE;
+	
+	private static Area getCityOutline(City city)
+	{
+		Area outline = new Area();
+		
+		for (Cell c : city)
+			outline.add(new Area(
+					new Rectangle(c.getRow()*World.rowOffset, 
+							      c.getCol()*World.colOffset, 
+							      World.rowOffset,  
+							      World.colOffset)));
+		return outline;
+	}
 	
 	// WorldPanel default constructor
 	public WorldPanel() {
@@ -42,7 +59,6 @@ public class WorldPanel extends JPanel implements MouseListener, MouseWheelListe
 	    //if (zoomer) {
 	        AffineTransform at = new AffineTransform();
 	        at.scale(zoomFactor, zoomFactor);
-	        prevZoomFactor = zoomFactor;
 	        g2.transform(at);
 			if (zoomer) {
 				setPreferredSize(new Dimension((int)((World.rows+1)*World.rowOffset*zoomFactor), 
@@ -68,7 +84,7 @@ public class WorldPanel extends JPanel implements MouseListener, MouseWheelListe
 				{
 					Cell cell = World.theWorld.myMap[i][j];
 
-					g.drawImage(cell.getImage(),
+					g.drawImage(Images.getImage(cell),
 							    i*World.rowOffset, 
 							    j*World.colOffset,
 							    new Color(cell.getBackground()), null);
@@ -84,7 +100,7 @@ public class WorldPanel extends JPanel implements MouseListener, MouseWheelListe
 							(cell.ableToAttack()) &&
 							(blinking < 0))
 						{
-							g.drawImage(cell.getGeology().getImage(), 
+							g.drawImage(Images.getImage(cell.getGeology()), 
 									i*World.rowOffset, 
 									j*World.colOffset,
 									new Color(cell.getBackground()), 
@@ -118,8 +134,18 @@ public class WorldPanel extends JPanel implements MouseListener, MouseWheelListe
 			{
 				// draw outline of selected City
 				g.setColor(Color.BLACK);
-				((Graphics2D)g).draw(World.theWorld.citySelected.getArea());
+				((Graphics2D)g).draw(WorldPanel.getCityOutline(World.theWorld.citySelected));
+				
+				// if city is selected then it's possible that a custom cursor is needed
+				if (World.theWorld.getMovingPiece() != Occupiers.NONE)
+					createCustomCursor(World.theWorld.getMovingPiece());
+				else
+					createCustomCursor(null);
 			}
+			else
+				// if city not select then cursor should be set to default
+				createCustomCursor(null); 
+
 
 		} // end try block
 		catch (Exception exception) 
@@ -144,9 +170,15 @@ public class WorldPanel extends JPanel implements MouseListener, MouseWheelListe
 		myBtnPanel = btnPanel;
 	}
 	
+	
+	public ButtonPanel getButtonPanel( )
+	{
+		return myBtnPanel;
+	}
+	
 	public void gameWasWonBy(Player player)
 	{
-		JOptionPane.showMessageDialog(this, "Player " + player.myColorDisplayName + " has won");
+		JOptionPane.showMessageDialog(this, "Player " + player.getColorName() + " has won");
 	}
 
 	
@@ -167,20 +199,30 @@ public class WorldPanel extends JPanel implements MouseListener, MouseWheelListe
 	{
 		repaint();
 	}
+	
+	// This gets called from paintComponent so don't change cursor if 
+	// the value for piece didn't change.
 	public void createCustomCursor(Occupiers piece)
 	{
-		
 		Cursor customCursor = null;
-		if (piece != null)
+		
+		// if piece is not null and different from last time cursor was created
+		if ((piece != null) && (piece != customCursorPiece))
 		{
+			customCursorPiece = piece;
 			customCursor = Toolkit.getDefaultToolkit().createCustomCursor(
-					Occupiers.ourImage[piece.ordinal()], 
+					Images.getImage(piece), 
 					new Point(0, 0), 
 					"customCursor");
 			Toolkit.getDefaultToolkit().getBestCursorSize(64, 64);
+			this.setCursor(customCursor);
 		}
-		this.setCursor( customCursor );
-		//repaint();
+		else if ((piece == null) && (customCursorPiece != null))
+		{
+			this.setCursor(null);
+			customCursorPiece = null;
+		}
+
 	}
 
 	@Override

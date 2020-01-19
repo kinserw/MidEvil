@@ -10,6 +10,8 @@ import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
+import com.kinser.midevilworld.*;
+
 /**
  * 
  */
@@ -18,8 +20,11 @@ import javax.swing.JTextField;
  * @author 16125
  *
  */
+
+
+
 public class ButtonPanel extends JPanel {
-	private JButton endTurnBtn = null;
+	public JButton endTurnBtn = null;
 	private ArrayList<JButton> myArmyBtns = new ArrayList<JButton>();
 	private JTextField myTextBox = null;
 	/**
@@ -74,11 +79,12 @@ public class ButtonPanel extends JPanel {
 		    endTurnBtn.setPreferredSize(new Dimension(100,16));
 		    endTurnBtn.setSize(new Dimension(100,16));
 		    grid.setConstraints(endTurnBtn, constraints);
+		    endTurnBtn.setEnabled(false);
 		    this.add(endTurnBtn);
 
 		    for (Occupiers piece : Occupiers.placeablePieces)
 		    {
-				String file = Occupiers.ourIconFiles[piece.ordinal()];
+				String file = Images.ourOccupierImageFiles[piece.ordinal()];
 				ImageIcon icon = new ImageIcon(file);
 				JButton btn = new JButton(icon);
 				myArmyBtns.add(btn); 
