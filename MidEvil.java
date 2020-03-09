@@ -62,6 +62,7 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
 		ourWorldPanel = new WorldPanel();
 		ourWorld.setUIRefresh(ourWorldPanel);
 		ourWorld.setNotifyWhoWon(ourWorldPanel);
+		ourWorld.setAutomaticWinListener(ourWorldPanel);
 		ourThread = new Thread (ourWorld);
 		
 
@@ -127,6 +128,8 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
 		JFileChooser fileChooser = new JFileChooser();
 	    FileNameExtensionFilter filter = new FileNameExtensionFilter("MidEvil files", "mid");
 	    fileChooser.setFileFilter(filter);
+	    fileChooser.setDialogTitle ("Load Game");
+	    fileChooser.setApproveButtonToolTipText ("Select the MidEvil saved game to load.");
 
 		if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
 			File file = fileChooser.getSelectedFile();
@@ -426,14 +429,15 @@ System.out.println( "system in : " + args[0] + "   " + args[1]);
         		        hardRMenuItem.setSelected(true);
         				break;        			
         			case 10 :
-            		        reallyHardRMenuItem.setSelected(true);
-            				break;
+        		        reallyHardRMenuItem.setSelected(true);
+        				break;
         			}
 					newMenuItem.setEnabled(false);
 					optionMenu.setEnabled(false);
 					loadMenuItem.setEnabled(false);
 					saveMenuItem.setEnabled(true);
 					endMenuItem.setEnabled(true);
+    				WorldPanel.theWorldPanel.getButtonPanel().endTurnBtn.setEnabled(true);
         			World.theWorld.myKeepRunning = true;
 	    			WorldPanel.theWorldPanel.repaint();
 

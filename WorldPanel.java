@@ -9,7 +9,7 @@ import java.awt.geom.Area;
 import com.kinser.midevilworld.*;
 
 public class WorldPanel extends JPanel implements MouseListener, MouseWheelListener,
-					 UIRefreshInterface, NotifyGameWon
+					 UIRefreshInterface, NotifyGameWon, AutomaticWinInterface
 {
 	/**
 	 * 
@@ -63,7 +63,7 @@ public class WorldPanel extends JPanel implements MouseListener, MouseWheelListe
 			if (zoomer) {
 				setPreferredSize(new Dimension((int)((World.rows+1)*World.rowOffset*zoomFactor), 
 						                       (int)((World.cols+3)*World.colOffset*zoomFactor)));
-//				WorldPanel.scrollWorldPanel.revalidate();
+				WorldPanel.scrollWorldPanel.revalidate();
 				WorldPanel.scrollWorldPanel.getHorizontalScrollBar().setValue(
 						(int) ((World.rowOffset*World.rows*zoomFactor -
 						WorldPanel.scrollWorldPanel.getHorizontalScrollBar().getVisibleAmount())/2));
@@ -181,6 +181,14 @@ public class WorldPanel extends JPanel implements MouseListener, MouseWheelListe
 		JOptionPane.showMessageDialog(this, "Player " + player.getColorName() + " has won");
 	}
 
+	public boolean winner(Player player)
+	{
+		boolean decision = JOptionPane.showConfirmDialog(this, 
+						"All other players concede to the " + 
+						player.getColorName() + 
+						" player. Do you accept the win?") == JOptionPane.YES_OPTION;
+		return decision;
+	}
 	
 
 	@Override
